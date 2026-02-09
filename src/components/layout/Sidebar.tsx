@@ -11,12 +11,14 @@ import {
   Briefcase,
   Monitor,
   Settings,
+  AlertCircle,
 } from 'lucide-react'
 
 const navigation = [
   { name: 'Function Chart', href: '/function-chart', icon: LayoutGrid },
   { name: 'Workflows', href: '/workflows', icon: GitBranch },
   { name: 'Activities', href: '/activities', icon: Activity },
+  { name: 'Gap Analysis', href: '/gaps', icon: AlertCircle },
   { name: 'People', href: '/people', icon: Users },
   { name: 'Roles', href: '/roles', icon: Briefcase },
   { name: 'Software', href: '/software', icon: Monitor },
