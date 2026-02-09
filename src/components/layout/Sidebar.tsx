@@ -13,7 +13,7 @@ import {
   Settings,
   AlertCircle,
   FileText,
-  Wrench,
+  Network,
 } from 'lucide-react'
 import { GlobalSearch } from '@/components/GlobalSearch'
 import { KeyboardShortcuts } from '@/components/KeyboardShortcuts'
@@ -34,6 +34,7 @@ const resources = [
 const tools = [
   { name: 'Job Descriptions', href: '/tools/job-description', icon: FileText },
   { name: 'Process Docs', href: '/tools/process-docs', icon: FileText },
+  { name: 'Org Chart', href: '/tools/org-chart', icon: Network },
 ]
 
 export function Sidebar() {
