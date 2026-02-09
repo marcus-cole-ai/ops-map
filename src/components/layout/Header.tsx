@@ -1,7 +1,7 @@
 'use client'
 
-import { useOpsMapStore } from '@/store'
-import { Download, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
+import { ReactNode } from 'react'
 
 interface HeaderProps {
   title: string
@@ -10,13 +10,10 @@ interface HeaderProps {
     label: string
     onClick: () => void
   }
-  showExport?: boolean
-  onExport?: () => void
+  extraActions?: ReactNode
 }
 
-export function Header({ title, description, action, showExport, onExport }: HeaderProps) {
-  const company = useOpsMapStore((state) => state.company)
-
+export function Header({ title, description, action, extraActions }: HeaderProps) {
   return (
     <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6">
       <div>
@@ -26,15 +23,7 @@ export function Header({ title, description, action, showExport, onExport }: Hea
         )}
       </div>
       <div className="flex items-center gap-3">
-        {showExport && onExport && (
-          <button
-            onClick={onExport}
-            className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-          >
-            <Download className="h-4 w-4" />
-            Export
-          </button>
-        )}
+        {extraActions}
         {action && (
           <button
             onClick={action.onClick}

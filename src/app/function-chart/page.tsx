@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Header } from '@/components/layout/Header'
 import { Modal } from '@/components/ui/Modal'
+import { ExportButton } from '@/components/ExportButton'
 import { useOpsMapStore } from '@/store'
 import { ChevronDown, ChevronRight, Plus, MoreHorizontal, Trash2, Edit2, AlertCircle } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
@@ -112,13 +113,14 @@ export default function FunctionChartPage() {
       <Header
         title="Function Chart"
         description="What happens in your business — structure and organization"
+        extraActions={<ExportButton targetId="function-chart-content" filename="function-chart" title="Function Chart" />}
         action={{
           label: 'Add Function',
           onClick: () => setShowAddFunction(true),
         }}
       />
 
-      <div className="p-6">
+      <div className="p-6" id="function-chart-content">
         {sortedFunctions.length === 0 ? (
           <div className="rounded-xl border-2 border-dashed border-slate-300 bg-white p-12 text-center">
             <div className="mx-auto h-12 w-12 rounded-full bg-blue-100 p-3">

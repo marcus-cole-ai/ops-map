@@ -4,6 +4,7 @@ import { useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { Header } from '@/components/layout/Header'
 import { Modal } from '@/components/ui/Modal'
+import { ExportButton } from '@/components/ExportButton'
 import { useOpsMapStore } from '@/store'
 import { ArrowLeft, Plus, MoreHorizontal, Trash2, Edit2, AlertCircle, Link as LinkIcon } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
@@ -113,9 +114,10 @@ export default function WorkflowDetailPage({ params }: PageProps) {
       <Header
         title={workflow.name}
         description={workflow.description || 'Workflow phases and steps'}
+        extraActions={<ExportButton targetId="workflow-content" filename={`workflow-${workflow.name.toLowerCase().replace(/\s+/g, '-')}`} title={workflow.name} />}
       />
 
-      <div className="p-6">
+      <div className="p-6" id="workflow-content">
         {/* Back link */}
         <Link
           href="/workflows"
