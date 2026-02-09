@@ -115,6 +115,10 @@ interface OpsMapState {
   deleteChecklistItem: (id: string) => void
   reorderChecklistItems: (activityId: string, ids: string[]) => void
   getChecklistForActivity: (activityId: string) => ChecklistItem[]
+  
+  // Utility
+  clearAllData: () => void
+  loadDemoData: () => void
 }
 
 export const useOpsMapStore = create<OpsMapState>()(
@@ -531,6 +535,168 @@ export const useOpsMapStore = create<OpsMapState>()(
         return get()
           .checklistItems.filter((ci) => ci.coreActivityId === activityId)
           .sort((a, b) => a.orderIndex - b.orderIndex)
+      },
+
+      // Utility functions
+      clearAllData: () => {
+        set({
+          company: { id: generateId(), name: 'My Company', createdAt: new Date() },
+          functions: [],
+          subFunctions: [],
+          coreActivities: [],
+          subFunctionActivities: [],
+          workflows: [],
+          phases: [],
+          steps: [],
+          stepActivities: [],
+          people: [],
+          roles: [],
+          software: [],
+          checklistItems: [],
+        })
+      },
+
+      loadDemoData: () => {
+        const companyId = generateId()
+        
+        // Clear first
+        set({
+          company: { id: companyId, name: 'Summit Construction Co.', createdAt: new Date() },
+          functions: [],
+          subFunctions: [],
+          coreActivities: [],
+          subFunctionActivities: [],
+          workflows: [],
+          phases: [],
+          steps: [],
+          stepActivities: [],
+          people: [],
+          roles: [],
+          software: [],
+          checklistItems: [],
+        })
+
+        // Add roles first
+        const roleMap: Record<string, string> = {}
+        const roles = [
+          { name: 'Owner', description: 'Business owner and final decision maker' },
+          { name: 'Project Manager', description: 'Oversees project execution' },
+          { name: 'Sales Rep', description: 'Handles client acquisition' },
+          { name: 'Designer', description: 'Creates project designs' },
+          { name: 'Estimator', description: 'Builds estimates and proposals' },
+          { name: 'Admin', description: 'Handles administrative tasks' },
+        ]
+        roles.forEach(r => {
+          const role = get().addRole(r.name, r.description)
+          roleMap[r.name] = role.id
+        })
+
+        // Add people
+        const peopleData = [
+          { name: 'Mike Johnson', email: 'mike@summit.com', role: 'Owner' },
+          { name: 'Sarah Chen', email: 'sarah@summit.com', role: 'Project Manager' },
+          { name: 'Tom Williams', email: 'tom@summit.com', role: 'Sales Rep' },
+          { name: 'Lisa Garcia', email: 'lisa@summit.com', role: 'Designer' },
+          { name: 'James Brown', email: 'james@summit.com', role: 'Estimator' },
+        ]
+        peopleData.forEach(p => {
+          const person = get().addPerson(p.name, p.email)
+          if (roleMap[p.role]) {
+            get().updatePerson(person.id, { roleId: roleMap[p.role] })
+          }
+        })
+
+        // Add software
+        const softwareData = [
+          { name: 'HubSpot', url: 'https://hubspot.com' },
+          { name: 'BuilderTrend', url: 'https://buildertrend.com' },
+          { name: 'QuickBooks', url: 'https://quickbooks.com' },
+          { name: 'Chief Architect', url: 'https://chiefarchitect.com' },
+          { name: 'Google Workspace', url: 'https://workspace.google.com' },
+        ]
+        softwareData.forEach(s => get().addSoftware(s.name, s.url))
+
+        // Add functions and sub-functions
+        const functionsData = [
+          { name: 'Marketing', description: 'Lead generation and brand awareness', color: '#3B82F6', subs: ['Brand Awareness', 'Lead Generation', 'Content Marketing', 'Referral Program'] },
+          { name: 'Sales', description: 'Converting leads to clients', color: '#10B981', subs: ['Lead Qualification', 'Discovery', 'Proposal Delivery', 'Contract Signing'] },
+          { name: 'Design', description: 'Project design and planning', color: '#F59E0B', subs: ['Initial Concepts', 'Design Development', 'Selections', 'Final Plans'] },
+          { name: 'Estimating', description: 'Pricing and proposals', color: '#EF4444', subs: ['Material Takeoff', 'Labor Estimation', 'Vendor Quotes', 'Proposal Building'] },
+          { name: 'Production', description: 'Project execution and delivery', color: '#8B5CF6', subs: ['Pre-Construction', 'Rough-In', 'Finishes', 'Punch List'] },
+          { name: 'Finance', description: 'Accounting and cash flow', color: '#EC4899', subs: ['Invoicing', 'Collections', 'Payroll', 'Job Costing'] },
+          { name: 'Administration', description: 'Operations and support', color: '#06B6D4', subs: ['Scheduling', 'Permits', 'Insurance', 'HR'] },
+        ]
+
+        const subFunctionMap: Record<string, string> = {}
+        functionsData.forEach(f => {
+          const func = get().addFunction(f.name, f.description)
+          get().updateFunction(func.id, { color: f.color })
+          f.subs.forEach(subName => {
+            const sub = get().addSubFunction(func.id, subName)
+            subFunctionMap[subName] = sub.id
+          })
+        })
+
+        // Add activities and link to sub-functions
+        const activitiesData: Record<string, string[]> = {
+          'Lead Generation': ['Run social media ads', 'Post to Houzz', 'Send email newsletter', 'Host open house'],
+          'Discovery': ['Schedule discovery call', 'Conduct site visit', 'Document client requirements', 'Review budget expectations'],
+          'Proposal Delivery': ['Present proposal in person', 'Walk through scope', 'Answer questions', 'Handle objections'],
+          'Pre-Construction': ['Order materials', 'Schedule subcontractors', 'Create project schedule', 'Hold pre-con meeting'],
+          'Punch List': ['Create punch list', 'Complete punch items', 'Schedule final walk', 'Obtain sign-off'],
+        }
+
+        Object.entries(activitiesData).forEach(([subFuncName, activities]) => {
+          const subFuncId = subFunctionMap[subFuncName]
+          if (subFuncId) {
+            activities.forEach(actName => {
+              const activity = get().addCoreActivity(actName)
+              get().linkActivityToSubFunction(subFuncId, activity.id)
+            })
+          }
+        })
+
+        // Add workflows
+        const workflowData = {
+          name: 'Client Journey',
+          description: 'End-to-end client experience from lead to completion',
+          phases: [
+            { name: 'Lead', steps: ['Capture lead info', 'Send intro email', 'Qualify lead'] },
+            { name: 'Discovery', steps: ['Schedule call', 'Conduct site visit', 'Document needs'] },
+            { name: 'Proposal', steps: ['Build estimate', 'Create proposal', 'Present to client'] },
+            { name: 'Contract', steps: ['Send contract', 'Collect deposit', 'Schedule kickoff'] },
+            { name: 'Production', steps: ['Pre-construction', 'Execute work', 'Quality checks'] },
+            { name: 'Completion', steps: ['Final walk', 'Collect final payment', 'Request review'] },
+          ],
+        }
+
+        const workflow = get().addWorkflow(workflowData.name, workflowData.description)
+        workflowData.phases.forEach(phaseData => {
+          const phase = get().addPhase(workflow.id, phaseData.name)
+          phaseData.steps.forEach(stepName => {
+            get().addStep(phase.id, stepName)
+          })
+        })
+
+        // Add second workflow
+        const workflow2Data = {
+          name: 'Sales Process',
+          description: 'Converting leads to signed contracts',
+          phases: [
+            { name: 'Qualify', steps: ['Review lead source', 'Check budget fit', 'Assess project scope'] },
+            { name: 'Discover', steps: ['Schedule discovery', 'Site visit', 'Document requirements'] },
+            { name: 'Propose', steps: ['Build estimate', 'Package proposal', 'Present'] },
+            { name: 'Close', steps: ['Handle objections', 'Negotiate terms', 'Sign contract'] },
+          ],
+        }
+
+        const workflow2 = get().addWorkflow(workflow2Data.name, workflow2Data.description)
+        workflow2Data.phases.forEach(phaseData => {
+          const phase = get().addPhase(workflow2.id, phaseData.name)
+          phaseData.steps.forEach(stepName => {
+            get().addStep(phase.id, stepName)
+          })
+        })
       },
     }),
     {
