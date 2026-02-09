@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { useOpsMapStore } from '@/store'
 import Link from 'next/link'
 import { 
@@ -27,21 +26,6 @@ export default function DashboardPage() {
     people,
     roles,
   } = useOpsMapStore()
-
-  const [showWelcome, setShowWelcome] = useState(false)
-
-  // Check if first time user
-  useEffect(() => {
-    const hasSeenWelcome = localStorage.getItem('ops-map-welcomed')
-    if (!hasSeenWelcome && functions.length === 0 && workflows.length === 0) {
-      setShowWelcome(true)
-    }
-  }, [functions.length, workflows.length])
-
-  const handleCloseWelcome = () => {
-    localStorage.setItem('ops-map-welcomed', 'true')
-    setShowWelcome(false)
-  }
 
   // Calculate stats
   const activitiesWithOwner = coreActivities.filter((a) => a.ownerId).length
@@ -324,7 +308,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Welcome Modal */}
-      <WelcomeModal isOpen={showWelcome} onClose={handleCloseWelcome} />
+      <WelcomeModal />
     </div>
   )
 }
