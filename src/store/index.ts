@@ -119,6 +119,7 @@ interface OpsMapState {
   // Utility
   clearAllData: () => void
   loadDemoData: () => void
+  loadTemplate: (templateId: string) => void
 }
 
 export const useOpsMapStore = create<OpsMapState>()(
@@ -695,6 +696,66 @@ export const useOpsMapStore = create<OpsMapState>()(
           const phase = get().addPhase(workflow2.id, phaseData.name)
           phaseData.steps.forEach(stepName => {
             get().addStep(phase.id, stepName)
+          })
+        })
+      },
+
+      loadTemplate: (templateId: string) => {
+        // Dynamic import to avoid circular dependencies
+        import('@/lib/templates').then(({ getTemplate }) => {
+          const template = getTemplate(templateId)
+          if (!template) return
+
+          const companyId = generateId()
+          
+          // Clear and set company
+          set({
+            company: { id: companyId, name: template.data.companyName, createdAt: new Date() },
+            functions: [],
+            subFunctions: [],
+            coreActivities: [],
+            subFunctionActivities: [],
+            workflows: [],
+            phases: [],
+            steps: [],
+            stepActivities: [],
+            people: [],
+            roles: [],
+            software: [],
+            checklistItems: [],
+          })
+
+          // Add roles
+          template.data.roles.forEach(r => {
+            get().addRole(r.name, r.description)
+          })
+
+          // Add functions, sub-functions, and activities
+          template.data.functions.forEach(funcData => {
+            const func = get().addFunction(funcData.name, funcData.description)
+            get().updateFunction(func.id, { color: funcData.color })
+            
+            funcData.subFunctions.forEach(subData => {
+              const sub = get().addSubFunction(func.id, subData.name)
+              
+              subData.activities.forEach(actName => {
+                const activity = get().addCoreActivity(actName)
+                get().linkActivityToSubFunction(sub.id, activity.id)
+              })
+            })
+          })
+
+          // Add workflows
+          template.data.workflows.forEach(wfData => {
+            const workflow = get().addWorkflow(wfData.name, wfData.description)
+            
+            wfData.phases.forEach(phaseData => {
+              const phase = get().addPhase(workflow.id, phaseData.name)
+              
+              phaseData.steps.forEach(stepName => {
+                get().addStep(phase.id, stepName)
+              })
+            })
           })
         })
       },
