@@ -6,7 +6,7 @@ import { Header } from '@/components/layout/Header'
 import { Modal } from '@/components/ui/Modal'
 import { ExportButton } from '@/components/ExportButton'
 import { useOpsMapStore } from '@/store'
-import { ArrowLeft, Plus, MoreHorizontal, Trash2, Edit2, AlertCircle, Link as LinkIcon } from 'lucide-react'
+import { ArrowLeft, Plus, MoreHorizontal, Trash2, Edit2, AlertCircle, Link as LinkIcon, GitBranch } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import Link from 'next/link'
 
@@ -114,7 +114,18 @@ export default function WorkflowDetailPage({ params }: PageProps) {
       <Header
         title={workflow.name}
         description={workflow.description || 'Workflow phases and steps'}
-        extraActions={<ExportButton targetId="workflow-content" filename={`workflow-${workflow.name.toLowerCase().replace(/\s+/g, '-')}`} title={workflow.name} />}
+        extraActions={
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/workflows/${id}/visual`}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50"
+            >
+              <GitBranch className="h-4 w-4" />
+              Visual View
+            </Link>
+            <ExportButton targetId="workflow-content" filename={`workflow-${workflow.name.toLowerCase().replace(/\s+/g, '-')}`} title={workflow.name} />
+          </div>
+        }
       />
 
       <div className="p-6" id="workflow-content">
