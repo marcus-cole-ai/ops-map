@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -15,6 +16,8 @@ import {
   FileText,
   Network,
   PieChart,
+  Menu,
+  X,
 } from 'lucide-react'
 import { GlobalSearch } from '@/components/GlobalSearch'
 import { KeyboardShortcuts } from '@/components/KeyboardShortcuts'
@@ -41,12 +44,27 @@ const tools = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  const [isOpen, setIsOpen] = useState(false)
 
-  return (
-    <div className="flex h-screen w-64 flex-col" style={{ background: 'var(--gk-charcoal)' }}>
+  // Close sidebar when route changes (on mobile)
+  useEffect(() => {
+    setIsOpen(false)
+  }, [pathname])
+
+  // Close sidebar on Escape key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false)
+    }
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [])
+
+  const SidebarContent = () => (
+    <>
       {/* Logo */}
-      <div className="flex h-16 items-center justify-center" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-        <Link href="/" className="flex items-center gap-2">
+      <div className="flex h-16 items-center justify-between px-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+        <Link href="/" className="flex items-center gap-2" onClick={() => setIsOpen(false)}>
           <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: 'var(--gk-green)' }}>
             <LayoutGrid className="h-5 w-5 text-white" />
           </div>
@@ -55,6 +73,13 @@ export function Sidebar() {
             <span className="text-white">Kits</span>
           </span>
         </Link>
+        {/* Close button on mobile */}
+        <button
+          onClick={() => setIsOpen(false)}
+          className="lg:hidden p-2 rounded-lg hover:bg-white/10 transition-colors"
+        >
+          <X className="h-5 w-5 text-white" />
+        </button>
       </div>
 
       {/* Search */}
@@ -72,6 +97,7 @@ export function Sidebar() {
               <Link
                 key={item.name}
                 href={item.href}
+                onClick={() => setIsOpen(false)}
                 className={cn(
                   'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                   isActive
@@ -102,6 +128,7 @@ export function Sidebar() {
                 <Link
                   key={item.name}
                   href={item.href}
+                  onClick={() => setIsOpen(false)}
                   className={cn(
                     'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                     isActive
@@ -133,6 +160,7 @@ export function Sidebar() {
                 <Link
                   key={item.name}
                   href={item.href}
+                  onClick={() => setIsOpen(false)}
                   className={cn(
                     'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                     isActive
@@ -158,6 +186,7 @@ export function Sidebar() {
         <div className="flex items-center gap-2 mb-2">
           <Link
             href="/settings"
+            onClick={() => setIsOpen(false)}
             className="flex-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:text-white"
             style={{ color: 'var(--stone)' }}
           >
@@ -170,6 +199,62 @@ export function Sidebar() {
           GrowthKits © 2026
         </div>
       </div>
-    </div>
+    </>
+  )
+
+  return (
+    <>
+      {/* Mobile Header with Hamburger */}
+      <div 
+        className="lg:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between h-14 px-4"
+        style={{ background: 'var(--gk-charcoal)' }}
+      >
+        <Link href="/" className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: 'var(--gk-green)' }}>
+            <LayoutGrid className="h-5 w-5 text-white" />
+          </div>
+          <span className="text-lg font-bold">
+            <span style={{ color: 'var(--gk-green)' }}>Growth</span>
+            <span className="text-white">Kits</span>
+          </span>
+        </Link>
+        <button
+          onClick={() => setIsOpen(true)}
+          className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+        >
+          <Menu className="h-6 w-6 text-white" />
+        </button>
+      </div>
+
+      {/* Mobile spacer */}
+      <div className="lg:hidden h-14" />
+
+      {/* Desktop Sidebar */}
+      <div className="hidden lg:flex h-screen w-64 flex-col fixed left-0 top-0" style={{ background: 'var(--gk-charcoal)' }}>
+        <SidebarContent />
+      </div>
+
+      {/* Desktop sidebar spacer */}
+      <div className="hidden lg:block w-64 flex-shrink-0" />
+
+      {/* Mobile Sidebar Overlay */}
+      {isOpen && (
+        <div 
+          className="lg:hidden fixed inset-0 z-50 bg-black/50"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
+      {/* Mobile Sidebar Drawer */}
+      <div 
+        className={cn(
+          "lg:hidden fixed top-0 left-0 bottom-0 z-50 w-64 flex flex-col transition-transform duration-300 ease-in-out",
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+        style={{ background: 'var(--gk-charcoal)' }}
+      >
+        <SidebarContent />
+      </div>
+    </>
   )
 }

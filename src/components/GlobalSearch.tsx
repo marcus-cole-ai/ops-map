@@ -149,6 +149,8 @@ export function GlobalSearch() {
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
           <Dialog.Content className="fixed left-[50%] top-[20%] translate-x-[-50%] w-full max-w-lg bg-white rounded-xl shadow-2xl overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
+            {/* Accessibility: visually hidden title for screen readers */}
+            <Dialog.Title className="sr-only">Search</Dialog.Title>
             {/* Search Input */}
             <div className="flex items-center gap-3 p-4 border-b border-slate-200">
               <Search className="h-5 w-5 text-slate-400" />
