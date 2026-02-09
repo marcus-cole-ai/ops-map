@@ -326,6 +326,35 @@ export default function WorkflowDetailPage({ params }: PageProps) {
                                       </div>
                                     )}
 
+                                    {/* SOP Field */}
+                                    <div 
+                                      className="mt-3 pt-3"
+                                      style={{ borderTop: '1px solid var(--stone)' }}
+                                    >
+                                      <label 
+                                        className="block text-xs font-medium mb-1"
+                                        style={{ color: 'var(--text-muted)' }}
+                                      >
+                                        SOP (Standard Operating Procedure)
+                                      </label>
+                                      <textarea
+                                        value={step.sop || ''}
+                                        onChange={(e) => {
+                                          e.stopPropagation()
+                                          updateStep(step.id, { sop: e.target.value })
+                                        }}
+                                        onClick={(e) => e.stopPropagation()}
+                                        placeholder="Document the standard procedure for this step..."
+                                        rows={3}
+                                        className="w-full px-3 py-2 rounded-lg border text-sm resize-none"
+                                        style={{ 
+                                          borderColor: 'var(--stone)', 
+                                          background: 'var(--white)',
+                                          color: 'var(--text-primary)'
+                                        }}
+                                      />
+                                    </div>
+
                                     {/* Step Actions */}
                                     <div 
                                       className="flex items-center gap-2 mt-3 pt-3"

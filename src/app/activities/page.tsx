@@ -377,89 +377,165 @@ export default function ActivitiesPage() {
               />
             </div>
 
-            {/* Checklist */}
-            <div>
-              <label 
-                className="block text-xs font-semibold uppercase tracking-wider mb-2"
-                style={{ color: 'var(--text-muted)' }}
+            {/* Checklist Section */}
+            <div 
+              className="rounded-xl border p-5"
+              style={{ borderColor: 'var(--stone)', background: 'var(--white)' }}
+            >
+              <h3 
+                className="text-sm font-semibold uppercase tracking-wider mb-4"
+                style={{ color: 'var(--text-primary)' }}
               >
                 Checklist
-              </label>
+              </h3>
+
+              {/* Trigger */}
+              <div className="mb-4">
+                <label 
+                  className="block text-xs font-medium mb-1"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  Trigger — What causes this checklist to be used?
+                </label>
+                <input
+                  type="text"
+                  value={selectedActivity.checklistTrigger || ''}
+                  onChange={(e) => handleUpdateActivity({ checklistTrigger: e.target.value })}
+                  placeholder="e.g., When a new lead comes in, When project is approved..."
+                  className="w-full px-3 py-2 rounded-lg border text-sm"
+                  style={{ 
+                    borderColor: 'var(--stone)', 
+                    background: 'var(--cream-light)',
+                    color: 'var(--text-primary)'
+                  }}
+                />
+              </div>
+
+              {/* End State */}
+              <div className="mb-4">
+                <label 
+                  className="block text-xs font-medium mb-1"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  End State — What does "done" look like?
+                </label>
+                <input
+                  type="text"
+                  value={selectedActivity.checklistEndState || ''}
+                  onChange={(e) => handleUpdateActivity({ checklistEndState: e.target.value })}
+                  placeholder="e.g., Lead is qualified and scheduled, Project kickoff complete..."
+                  className="w-full px-3 py-2 rounded-lg border text-sm"
+                  style={{ 
+                    borderColor: 'var(--stone)', 
+                    background: 'var(--cream-light)',
+                    color: 'var(--text-primary)'
+                  }}
+                />
+              </div>
+
+              {/* Checklist Items */}
               <div 
-                className="rounded-lg border p-4"
-                style={{ borderColor: 'var(--stone)', background: 'var(--white)' }}
+                className="pt-4 mt-4"
+                style={{ borderTop: '1px solid var(--stone)' }}
               >
+                <div className="flex items-center justify-between mb-3">
+                  <label 
+                    className="text-xs font-medium"
+                    style={{ color: 'var(--text-muted)' }}
+                  >
+                    Checklist Items
+                  </label>
+                  {getChecklistForActivity(selectedActivity.id).length >= 10 && (
+                    <span 
+                      className="text-xs px-2 py-1 rounded"
+                      style={{ background: 'var(--sand)', color: '#b8923a' }}
+                    >
+                      Max 10 items recommended
+                    </span>
+                  )}
+                </div>
+
                 {getChecklistForActivity(selectedActivity.id).length === 0 ? (
                   <p 
                     className="text-sm italic mb-3"
                     style={{ color: 'var(--text-muted)' }}
                   >
-                    No checklist items yet
+                    No checklist items yet. Keep it to 10 items or fewer.
                   </p>
                 ) : (
                   <div className="space-y-2 mb-4">
                     {getChecklistForActivity(selectedActivity.id).map((item) => (
                       <div 
                         key={item.id}
-                        className="flex items-center gap-3 p-2 rounded"
+                        className="p-3 rounded-lg"
                         style={{ background: 'var(--cream-light)' }}
                       >
-                        <input
-                          type="checkbox"
-                          checked={item.completed}
-                          onChange={(e) => updateChecklistItem(item.id, { completed: e.target.checked })}
-                          className="h-4 w-4 rounded"
-                          style={{ accentColor: 'var(--gk-green)' }}
-                        />
-                        <span 
-                          className={`flex-1 text-sm ${item.completed ? 'line-through' : ''}`}
-                          style={{ color: item.completed ? 'var(--text-muted)' : 'var(--text-primary)' }}
-                        >
-                          {item.text}
-                        </span>
-                        <button
-                          onClick={() => deleteChecklistItem(item.id)}
-                          className="p-1 rounded hover:bg-red-100 transition-colors"
-                        >
-                          <X className="h-4 w-4" style={{ color: 'var(--text-muted)' }} />
-                        </button>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={item.completed}
+                            onChange={(e) => updateChecklistItem(item.id, { completed: e.target.checked })}
+                            className="h-4 w-4 rounded flex-shrink-0"
+                            style={{ accentColor: 'var(--gk-green)' }}
+                          />
+                          <span 
+                            className={`flex-1 text-sm ${item.completed ? 'line-through' : ''}`}
+                            style={{ color: item.completed ? 'var(--text-muted)' : 'var(--text-primary)' }}
+                          >
+                            {item.text}
+                          </span>
+                          <button
+                            onClick={() => deleteChecklistItem(item.id)}
+                            className="p-1 rounded hover:bg-red-100 transition-colors flex-shrink-0"
+                          >
+                            <X className="h-4 w-4" style={{ color: 'var(--text-muted)' }} />
+                          </button>
+                        </div>
+                        {/* Video URL */}
+                        <div className="mt-2 ml-7">
+                          <input
+                            type="url"
+                            value={item.videoUrl || ''}
+                            onChange={(e) => updateChecklistItem(item.id, { videoUrl: e.target.value || undefined })}
+                            placeholder="Video URL (optional)"
+                            className="w-full px-2 py-1 rounded border text-xs"
+                            style={{ 
+                              borderColor: 'var(--stone)', 
+                              background: 'var(--white)',
+                              color: 'var(--text-secondary)'
+                            }}
+                          />
+                        </div>
                       </div>
                     ))}
                   </div>
                 )}
                 
                 {/* Add checklist item */}
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newChecklistItem}
-                    onChange={(e) => setNewChecklistItem(e.target.value)}
-                    placeholder="Add checklist item..."
-                    className="flex-1 px-3 py-2 rounded-lg border text-sm"
-                    style={{ 
-                      borderColor: 'var(--stone)', 
-                      background: 'var(--cream)',
-                      color: 'var(--text-primary)'
-                    }}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddChecklistItem()}
-                  />
-                  <button
-                    onClick={handleAddChecklistItem}
-                    disabled={!newChecklistItem.trim()}
-                    className="px-4 py-2 rounded-lg font-medium text-white disabled:opacity-50"
-                    style={{ background: 'var(--gk-green)' }}
-                  >
-                    Add
-                  </button>
-                </div>
-                
-                {getChecklistForActivity(selectedActivity.id).length > 0 && (
-                  <p 
-                    className="text-xs mt-3"
-                    style={{ color: 'var(--text-muted)' }}
-                  >
-                    Tip: Keep checklists to 10 items or fewer. Include a clear trigger and end state.
-                  </p>
+                {getChecklistForActivity(selectedActivity.id).length < 10 && (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newChecklistItem}
+                      onChange={(e) => setNewChecklistItem(e.target.value)}
+                      placeholder="Add checklist item (plain language, easy to understand)..."
+                      className="flex-1 px-3 py-2 rounded-lg border text-sm"
+                      style={{ 
+                        borderColor: 'var(--stone)', 
+                        background: 'var(--cream)',
+                        color: 'var(--text-primary)'
+                      }}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddChecklistItem()}
+                    />
+                    <button
+                      onClick={handleAddChecklistItem}
+                      disabled={!newChecklistItem.trim()}
+                      className="px-4 py-2 rounded-lg font-medium text-white disabled:opacity-50"
+                      style={{ background: 'var(--gk-green)' }}
+                    >
+                      Add
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
