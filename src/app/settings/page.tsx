@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useOpsMapStore } from '@/store'
 import { 
   Building2, 
@@ -40,6 +40,13 @@ export default function SettingsPage() {
   const [importSuccess, setImportSuccess] = useState(false)
   const [companyName, setCompanyName] = useState(company?.name || '')
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Sync company name when store changes (e.g., after loading demo data)
+  useEffect(() => {
+    if (company?.name) {
+      setCompanyName(company.name)
+    }
+  }, [company?.name])
 
   const handleExport = () => {
     const data = {

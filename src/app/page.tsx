@@ -12,7 +12,7 @@ import {
   CheckCircle2,
   XCircle
 } from 'lucide-react'
-import { WelcomeModal } from '@/components/WelcomeModal'
+// WelcomeModal is in AppShell - no need to import here
 
 export default function DashboardPage() {
   const {
@@ -307,8 +307,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Welcome Modal */}
-      <WelcomeModal />
+      {/* Welcome Modal is rendered in AppShell */}
     </div>
   )
 }
