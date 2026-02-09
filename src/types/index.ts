@@ -6,6 +6,28 @@ export interface Company {
   createdAt: Date
 }
 
+// Workspace contains all data for a single client/company
+export interface Workspace {
+  id: string
+  name: string
+  createdAt: Date
+  // Company settings
+  company: Company
+  // All entity data
+  functions: Function[]
+  subFunctions: SubFunction[]
+  coreActivities: CoreActivity[]
+  subFunctionActivities: SubFunctionActivity[]
+  workflows: Workflow[]
+  phases: Phase[]
+  steps: Step[]
+  stepActivities: StepActivity[]
+  people: Person[]
+  roles: Role[]
+  software: Software[]
+  checklistItems: ChecklistItem[]
+}
+
 export interface Function {
   id: string
   companyId: string

@@ -32,6 +32,7 @@ export default function SettingsPage() {
     roles,
     software,
     checklistItems,
+    getActiveWorkspace,
   } = useOpsMapStore()
 
   const [showClearConfirm, setShowClearConfirm] = useState(false)
@@ -49,9 +50,11 @@ export default function SettingsPage() {
   }, [company?.name])
 
   const handleExport = () => {
+    const activeWorkspace = getActiveWorkspace()
     const data = {
-      version: '1.0',
+      version: '2.0',
       exportedAt: new Date().toISOString(),
+      workspaceName: activeWorkspace.name,
       company,
       functions,
       subFunctions,
@@ -72,7 +75,7 @@ export default function SettingsPage() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `opsmap-${company?.name?.toLowerCase().replace(/\s+/g, '-') || 'export'}-${new Date().toISOString().split('T')[0]}.json`
+    a.download = `opsmap-${activeWorkspace.name?.toLowerCase().replace(/\s+/g, '-') || 'export'}-${new Date().toISOString().split('T')[0]}.json`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -300,10 +303,10 @@ export default function SettingsPage() {
               <Download className="h-5 w-5" style={{ color: 'var(--gk-green)' }} />
               <div className="flex-1 text-left">
                 <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                  Export Data
+                  Export Workspace
                 </div>
                 <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                  Download your OpsMap data as JSON
+                  Download current workspace data as JSON
                 </div>
               </div>
               <FileJson className="h-4 w-4" style={{ color: 'var(--text-muted)' }} />
@@ -328,7 +331,7 @@ export default function SettingsPage() {
                     Import Data
                   </div>
                   <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                    Restore from a previous export
+                    Replace current workspace with exported data
                   </div>
                 </div>
                 {importSuccess && (

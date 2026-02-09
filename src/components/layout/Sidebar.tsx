@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import { GlobalSearch } from '@/components/GlobalSearch'
 import { KeyboardShortcuts } from '@/components/KeyboardShortcuts'
+import { WorkspaceSwitcher } from '@/components/WorkspaceSwitcher'
 
 const navigation = [
   { name: 'Function Chart', href: '/function-chart', icon: LayoutGrid },
@@ -80,6 +81,11 @@ export function Sidebar() {
         >
           <X className="h-5 w-5 text-white" />
         </button>
+      </div>
+
+      {/* Workspace Switcher */}
+      <div className="px-3 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+        <WorkspaceSwitcher />
       </div>
 
       {/* Search */}

@@ -14,6 +14,7 @@ import type {
   Role,
   Software,
   ChecklistItem,
+  Workspace,
 } from '@/types'
 
 // Generate unique IDs
@@ -33,8 +34,46 @@ const FUNCTION_COLORS = [
   '#6366F1', // indigo
 ]
 
+// Create an empty workspace
+const createEmptyWorkspace = (name: string): Workspace => {
+  const id = generateId()
+  return {
+    id,
+    name,
+    createdAt: new Date(),
+    company: {
+      id: generateId(),
+      name,
+      createdAt: new Date(),
+    },
+    functions: [],
+    subFunctions: [],
+    coreActivities: [],
+    subFunctionActivities: [],
+    workflows: [],
+    phases: [],
+    steps: [],
+    stepActivities: [],
+    people: [],
+    roles: [],
+    software: [],
+    checklistItems: [],
+  }
+}
+
 interface OpsMapState {
-  // Company
+  // Workspace management
+  workspaces: Workspace[]
+  activeWorkspaceId: string
+  
+  // Workspace actions
+  getActiveWorkspace: () => Workspace
+  addWorkspace: (name: string) => Workspace
+  renameWorkspace: (id: string, name: string) => void
+  deleteWorkspace: (id: string) => void
+  switchWorkspace: (id: string) => void
+  
+  // Company (operates on active workspace)
   company: Company | null
   setCompany: (company: Company) => void
   
@@ -122,63 +161,220 @@ interface OpsMapState {
   loadTemplate: (templateId: string) => void
 }
 
+// Helper to update the active workspace in the workspaces array
+const updateActiveWorkspace = (
+  state: OpsMapState,
+  updater: (ws: Workspace) => Workspace
+): Partial<OpsMapState> => {
+  const workspaces = state.workspaces.map(ws =>
+    ws.id === state.activeWorkspaceId ? updater(ws) : ws
+  )
+  const active = workspaces.find(ws => ws.id === state.activeWorkspaceId)!
+  return {
+    workspaces,
+    // Sync computed properties
+    company: active.company,
+    functions: active.functions,
+    subFunctions: active.subFunctions,
+    coreActivities: active.coreActivities,
+    subFunctionActivities: active.subFunctionActivities,
+    workflows: active.workflows,
+    phases: active.phases,
+    steps: active.steps,
+    stepActivities: active.stepActivities,
+    people: active.people,
+    roles: active.roles,
+    software: active.software,
+    checklistItems: active.checklistItems,
+  }
+}
+
+// Get active workspace data for computed properties
+const getActiveData = (workspaces: Workspace[], activeId: string) => {
+  const active = workspaces.find(ws => ws.id === activeId)
+  if (!active) {
+    // Fallback to first workspace or create empty
+    const first = workspaces[0] || createEmptyWorkspace('My Company')
+    return {
+      company: first.company,
+      functions: first.functions,
+      subFunctions: first.subFunctions,
+      coreActivities: first.coreActivities,
+      subFunctionActivities: first.subFunctionActivities,
+      workflows: first.workflows,
+      phases: first.phases,
+      steps: first.steps,
+      stepActivities: first.stepActivities,
+      people: first.people,
+      roles: first.roles,
+      software: first.software,
+      checklistItems: first.checklistItems,
+    }
+  }
+  return {
+    company: active.company,
+    functions: active.functions,
+    subFunctions: active.subFunctions,
+    coreActivities: active.coreActivities,
+    subFunctionActivities: active.subFunctionActivities,
+    workflows: active.workflows,
+    phases: active.phases,
+    steps: active.steps,
+    stepActivities: active.stepActivities,
+    people: active.people,
+    roles: active.roles,
+    software: active.software,
+    checklistItems: active.checklistItems,
+  }
+}
+
+// Initial state with one default workspace
+const defaultWorkspace = createEmptyWorkspace('My Company')
+const initialWorkspaces = [defaultWorkspace]
+
 export const useOpsMapStore = create<OpsMapState>()(
   persist(
     (set, get) => ({
-      // Company
-      company: {
-        id: generateId(),
-        name: 'My Company',
-        createdAt: new Date(),
-      },
-      setCompany: (company) => set({ company }),
+      // Workspace management
+      workspaces: initialWorkspaces,
+      activeWorkspaceId: defaultWorkspace.id,
       
-      // Functions
+      getActiveWorkspace: () => {
+        const state = get()
+        return state.workspaces.find(ws => ws.id === state.activeWorkspaceId) || state.workspaces[0]
+      },
+      
+      addWorkspace: (name) => {
+        const newWorkspace = createEmptyWorkspace(name)
+        set(state => ({
+          workspaces: [...state.workspaces, newWorkspace],
+        }))
+        return newWorkspace
+      },
+      
+      renameWorkspace: (id, name) => {
+        set(state => ({
+          workspaces: state.workspaces.map(ws =>
+            ws.id === id 
+              ? { ...ws, name, company: { ...ws.company, name } }
+              : ws
+          ),
+          // Update company if it's the active workspace
+          company: state.activeWorkspaceId === id 
+            ? { ...state.company!, name }
+            : state.company,
+        }))
+      },
+      
+      deleteWorkspace: (id) => {
+        const state = get()
+        // Can't delete the last workspace
+        if (state.workspaces.length <= 1) return
+        
+        const remainingWorkspaces = state.workspaces.filter(ws => ws.id !== id)
+        const newActiveId = state.activeWorkspaceId === id 
+          ? remainingWorkspaces[0].id 
+          : state.activeWorkspaceId
+        
+        const activeData = getActiveData(remainingWorkspaces, newActiveId)
+        
+        set({
+          workspaces: remainingWorkspaces,
+          activeWorkspaceId: newActiveId,
+          ...activeData,
+        })
+      },
+      
+      switchWorkspace: (id) => {
+        const state = get()
+        const workspace = state.workspaces.find(ws => ws.id === id)
+        if (!workspace) return
+        
+        set({
+          activeWorkspaceId: id,
+          company: workspace.company,
+          functions: workspace.functions,
+          subFunctions: workspace.subFunctions,
+          coreActivities: workspace.coreActivities,
+          subFunctionActivities: workspace.subFunctionActivities,
+          workflows: workspace.workflows,
+          phases: workspace.phases,
+          steps: workspace.steps,
+          stepActivities: workspace.stepActivities,
+          people: workspace.people,
+          roles: workspace.roles,
+          software: workspace.software,
+          checklistItems: workspace.checklistItems,
+        })
+      },
+      
+      // Company - computed from active workspace
+      company: defaultWorkspace.company,
+      setCompany: (company) => {
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          company,
+        })))
+      },
+      
+      // Functions - computed from active workspace
       functions: [],
       addFunction: (name, description) => {
-        const funcs = get().functions
+        const state = get()
+        const funcs = state.functions
         const newFunc: Function = {
           id: generateId(),
-          companyId: get().company?.id || '',
+          companyId: state.company?.id || '',
           name,
           description,
           orderIndex: funcs.length,
           color: FUNCTION_COLORS[funcs.length % FUNCTION_COLORS.length],
         }
-        set({ functions: [...funcs, newFunc] })
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          functions: [...ws.functions, newFunc],
+        })))
         return newFunc
       },
       updateFunction: (id, updates) => {
-        set({
-          functions: get().functions.map((f) =>
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          functions: ws.functions.map(f =>
             f.id === id ? { ...f, ...updates } : f
           ),
-        })
+        })))
       },
       deleteFunction: (id) => {
-        // Also delete related sub-functions and their activity links
-        const subFuncIds = get().subFunctions.filter(sf => sf.functionId === id).map(sf => sf.id)
-        set({
-          functions: get().functions.filter((f) => f.id !== id),
-          subFunctions: get().subFunctions.filter((sf) => sf.functionId !== id),
-          subFunctionActivities: get().subFunctionActivities.filter(
-            (sfa) => !subFuncIds.includes(sfa.subFunctionId)
-          ),
+        set(state => {
+          const subFuncIds = state.subFunctions
+            .filter(sf => sf.functionId === id)
+            .map(sf => sf.id)
+          
+          return updateActiveWorkspace(state, ws => ({
+            ...ws,
+            functions: ws.functions.filter(f => f.id !== id),
+            subFunctions: ws.subFunctions.filter(sf => sf.functionId !== id),
+            subFunctionActivities: ws.subFunctionActivities.filter(
+              sfa => !subFuncIds.includes(sfa.subFunctionId)
+            ),
+          }))
         })
       },
       reorderFunctions: (ids) => {
-        set({
-          functions: get().functions.map((f) => ({
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          functions: ws.functions.map(f => ({
             ...f,
             orderIndex: ids.indexOf(f.id),
           })),
-        })
+        })))
       },
       
       // Sub-Functions
       subFunctions: [],
       addSubFunction: (functionId, name, description) => {
-        const subs = get().subFunctions.filter((sf) => sf.functionId === functionId)
+        const state = get()
+        const subs = state.subFunctions.filter(sf => sf.functionId === functionId)
         const newSub: SubFunction = {
           id: generateId(),
           functionId,
@@ -186,322 +382,390 @@ export const useOpsMapStore = create<OpsMapState>()(
           description,
           orderIndex: subs.length,
         }
-        set({ subFunctions: [...get().subFunctions, newSub] })
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          subFunctions: [...ws.subFunctions, newSub],
+        })))
         return newSub
       },
       updateSubFunction: (id, updates) => {
-        set({
-          subFunctions: get().subFunctions.map((sf) =>
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          subFunctions: ws.subFunctions.map(sf =>
             sf.id === id ? { ...sf, ...updates } : sf
           ),
-        })
+        })))
       },
       deleteSubFunction: (id) => {
-        set({
-          subFunctions: get().subFunctions.filter((sf) => sf.id !== id),
-          subFunctionActivities: get().subFunctionActivities.filter(
-            (sfa) => sfa.subFunctionId !== id
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          subFunctions: ws.subFunctions.filter(sf => sf.id !== id),
+          subFunctionActivities: ws.subFunctionActivities.filter(
+            sfa => sfa.subFunctionId !== id
           ),
-        })
+        })))
       },
       reorderSubFunctions: (functionId, ids) => {
-        set({
-          subFunctions: get().subFunctions.map((sf) =>
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          subFunctions: ws.subFunctions.map(sf =>
             sf.functionId === functionId
               ? { ...sf, orderIndex: ids.indexOf(sf.id) }
               : sf
           ),
-        })
+        })))
       },
       
       // Core Activities
       coreActivities: [],
       addCoreActivity: (name, description) => {
+        const state = get()
         const newActivity: CoreActivity = {
           id: generateId(),
-          companyId: get().company?.id || '',
+          companyId: state.company?.id || '',
           name,
           description,
           createdAt: new Date(),
         }
-        set({ coreActivities: [...get().coreActivities, newActivity] })
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          coreActivities: [...ws.coreActivities, newActivity],
+        })))
         return newActivity
       },
       updateCoreActivity: (id, updates) => {
-        set({
-          coreActivities: get().coreActivities.map((a) =>
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          coreActivities: ws.coreActivities.map(a =>
             a.id === id ? { ...a, ...updates } : a
           ),
-        })
+        })))
       },
       deleteCoreActivity: (id) => {
-        set({
-          coreActivities: get().coreActivities.filter((a) => a.id !== id),
-          subFunctionActivities: get().subFunctionActivities.filter(
-            (sfa) => sfa.coreActivityId !== id
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          coreActivities: ws.coreActivities.filter(a => a.id !== id),
+          subFunctionActivities: ws.subFunctionActivities.filter(
+            sfa => sfa.coreActivityId !== id
           ),
-          stepActivities: get().stepActivities.filter(
-            (sa) => sa.coreActivityId !== id
+          stepActivities: ws.stepActivities.filter(
+            sa => sa.coreActivityId !== id
           ),
-          checklistItems: get().checklistItems.filter(
-            (ci) => ci.coreActivityId !== id
+          checklistItems: ws.checklistItems.filter(
+            ci => ci.coreActivityId !== id
           ),
-        })
+        })))
       },
       
       // Sub-Function <-> Activity Links
       subFunctionActivities: [],
       linkActivityToSubFunction: (subFunctionId, activityId) => {
-        const existing = get().subFunctionActivities.find(
-          (sfa) => sfa.subFunctionId === subFunctionId && sfa.coreActivityId === activityId
+        const state = get()
+        const existing = state.subFunctionActivities.find(
+          sfa => sfa.subFunctionId === subFunctionId && sfa.coreActivityId === activityId
         )
         if (existing) return
-        const count = get().subFunctionActivities.filter(
-          (sfa) => sfa.subFunctionId === subFunctionId
+        const count = state.subFunctionActivities.filter(
+          sfa => sfa.subFunctionId === subFunctionId
         ).length
-        set({
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
           subFunctionActivities: [
-            ...get().subFunctionActivities,
+            ...ws.subFunctionActivities,
             { subFunctionId, coreActivityId: activityId, orderIndex: count },
           ],
-        })
+        })))
       },
       unlinkActivityFromSubFunction: (subFunctionId, activityId) => {
-        set({
-          subFunctionActivities: get().subFunctionActivities.filter(
-            (sfa) =>
-              !(sfa.subFunctionId === subFunctionId && sfa.coreActivityId === activityId)
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          subFunctionActivities: ws.subFunctionActivities.filter(
+            sfa => !(sfa.subFunctionId === subFunctionId && sfa.coreActivityId === activityId)
           ),
-        })
+        })))
       },
       getActivitiesForSubFunction: (subFunctionId) => {
-        const links = get()
-          .subFunctionActivities.filter((sfa) => sfa.subFunctionId === subFunctionId)
+        const state = get()
+        const links = state.subFunctionActivities
+          .filter(sfa => sfa.subFunctionId === subFunctionId)
           .sort((a, b) => a.orderIndex - b.orderIndex)
-        const activities = get().coreActivities
-        return links.map((l) => activities.find((a) => a.id === l.coreActivityId)!).filter(Boolean)
+        return links
+          .map(l => state.coreActivities.find(a => a.id === l.coreActivityId)!)
+          .filter(Boolean)
       },
       
       // Workflows
       workflows: [],
       addWorkflow: (name, description) => {
+        const state = get()
         const newWorkflow: Workflow = {
           id: generateId(),
-          companyId: get().company?.id || '',
+          companyId: state.company?.id || '',
           name,
           description,
           createdAt: new Date(),
         }
-        set({ workflows: [...get().workflows, newWorkflow] })
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          workflows: [...ws.workflows, newWorkflow],
+        })))
         return newWorkflow
       },
       updateWorkflow: (id, updates) => {
-        set({
-          workflows: get().workflows.map((w) =>
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          workflows: ws.workflows.map(w =>
             w.id === id ? { ...w, ...updates } : w
           ),
-        })
+        })))
       },
       deleteWorkflow: (id) => {
-        const phaseIds = get().phases.filter(p => p.workflowId === id).map(p => p.id)
-        const stepIds = get().steps.filter(s => phaseIds.includes(s.phaseId)).map(s => s.id)
-        set({
-          workflows: get().workflows.filter((w) => w.id !== id),
-          phases: get().phases.filter((p) => p.workflowId !== id),
-          steps: get().steps.filter((s) => !phaseIds.includes(s.phaseId)),
-          stepActivities: get().stepActivities.filter((sa) => !stepIds.includes(sa.stepId)),
+        set(state => {
+          const phaseIds = state.phases.filter(p => p.workflowId === id).map(p => p.id)
+          const stepIds = state.steps.filter(s => phaseIds.includes(s.phaseId)).map(s => s.id)
+          
+          return updateActiveWorkspace(state, ws => ({
+            ...ws,
+            workflows: ws.workflows.filter(w => w.id !== id),
+            phases: ws.phases.filter(p => p.workflowId !== id),
+            steps: ws.steps.filter(s => !phaseIds.includes(s.phaseId)),
+            stepActivities: ws.stepActivities.filter(sa => !stepIds.includes(sa.stepId)),
+          }))
         })
       },
       
       // Phases
       phases: [],
       addPhase: (workflowId, name) => {
-        const existing = get().phases.filter((p) => p.workflowId === workflowId)
+        const state = get()
+        const existing = state.phases.filter(p => p.workflowId === workflowId)
         const newPhase: Phase = {
           id: generateId(),
           workflowId,
           name,
           orderIndex: existing.length,
         }
-        set({ phases: [...get().phases, newPhase] })
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          phases: [...ws.phases, newPhase],
+        })))
         return newPhase
       },
       updatePhase: (id, updates) => {
-        set({
-          phases: get().phases.map((p) =>
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          phases: ws.phases.map(p =>
             p.id === id ? { ...p, ...updates } : p
           ),
-        })
+        })))
       },
       deletePhase: (id) => {
-        const stepIds = get().steps.filter(s => s.phaseId === id).map(s => s.id)
-        set({
-          phases: get().phases.filter((p) => p.id !== id),
-          steps: get().steps.filter((s) => s.phaseId !== id),
-          stepActivities: get().stepActivities.filter((sa) => !stepIds.includes(sa.stepId)),
+        set(state => {
+          const stepIds = state.steps.filter(s => s.phaseId === id).map(s => s.id)
+          
+          return updateActiveWorkspace(state, ws => ({
+            ...ws,
+            phases: ws.phases.filter(p => p.id !== id),
+            steps: ws.steps.filter(s => s.phaseId !== id),
+            stepActivities: ws.stepActivities.filter(sa => !stepIds.includes(sa.stepId)),
+          }))
         })
       },
       reorderPhases: (workflowId, ids) => {
-        set({
-          phases: get().phases.map((p) =>
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          phases: ws.phases.map(p =>
             p.workflowId === workflowId
               ? { ...p, orderIndex: ids.indexOf(p.id) }
               : p
           ),
-        })
+        })))
       },
       
       // Steps
       steps: [],
       addStep: (phaseId, name) => {
-        const existing = get().steps.filter((s) => s.phaseId === phaseId)
+        const state = get()
+        const existing = state.steps.filter(s => s.phaseId === phaseId)
         const newStep: Step = {
           id: generateId(),
           phaseId,
           name,
           orderIndex: existing.length,
         }
-        set({ steps: [...get().steps, newStep] })
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          steps: [...ws.steps, newStep],
+        })))
         return newStep
       },
       updateStep: (id, updates) => {
-        set({
-          steps: get().steps.map((s) =>
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          steps: ws.steps.map(s =>
             s.id === id ? { ...s, ...updates } : s
           ),
-        })
+        })))
       },
       deleteStep: (id) => {
-        set({
-          steps: get().steps.filter((s) => s.id !== id),
-          stepActivities: get().stepActivities.filter((sa) => sa.stepId !== id),
-        })
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          steps: ws.steps.filter(s => s.id !== id),
+          stepActivities: ws.stepActivities.filter(sa => sa.stepId !== id),
+        })))
       },
       reorderSteps: (phaseId, ids) => {
-        set({
-          steps: get().steps.map((s) =>
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          steps: ws.steps.map(s =>
             s.phaseId === phaseId ? { ...s, orderIndex: ids.indexOf(s.id) } : s
           ),
-        })
+        })))
       },
       
       // Step <-> Activity Links
       stepActivities: [],
       linkActivityToStep: (stepId, activityId) => {
-        const existing = get().stepActivities.find(
-          (sa) => sa.stepId === stepId && sa.coreActivityId === activityId
+        const state = get()
+        const existing = state.stepActivities.find(
+          sa => sa.stepId === stepId && sa.coreActivityId === activityId
         )
         if (existing) return
-        const count = get().stepActivities.filter((sa) => sa.stepId === stepId).length
-        set({
+        const count = state.stepActivities.filter(sa => sa.stepId === stepId).length
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
           stepActivities: [
-            ...get().stepActivities,
+            ...ws.stepActivities,
             { stepId, coreActivityId: activityId, orderIndex: count },
           ],
-        })
+        })))
       },
       unlinkActivityFromStep: (stepId, activityId) => {
-        set({
-          stepActivities: get().stepActivities.filter(
-            (sa) => !(sa.stepId === stepId && sa.coreActivityId === activityId)
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          stepActivities: ws.stepActivities.filter(
+            sa => !(sa.stepId === stepId && sa.coreActivityId === activityId)
           ),
-        })
+        })))
       },
       getActivitiesForStep: (stepId) => {
-        const links = get()
-          .stepActivities.filter((sa) => sa.stepId === stepId)
+        const state = get()
+        const links = state.stepActivities
+          .filter(sa => sa.stepId === stepId)
           .sort((a, b) => a.orderIndex - b.orderIndex)
-        const activities = get().coreActivities
-        return links.map((l) => activities.find((a) => a.id === l.coreActivityId)!).filter(Boolean)
+        return links
+          .map(l => state.coreActivities.find(a => a.id === l.coreActivityId)!)
+          .filter(Boolean)
       },
       
       // People
       people: [],
       addPerson: (name, email) => {
+        const state = get()
         const newPerson: Person = {
           id: generateId(),
-          companyId: get().company?.id || '',
+          companyId: state.company?.id || '',
           name,
           email,
         }
-        set({ people: [...get().people, newPerson] })
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          people: [...ws.people, newPerson],
+        })))
         return newPerson
       },
       updatePerson: (id, updates) => {
-        set({
-          people: get().people.map((p) =>
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          people: ws.people.map(p =>
             p.id === id ? { ...p, ...updates } : p
           ),
-        })
+        })))
       },
       deletePerson: (id) => {
-        set({
-          people: get().people.filter((p) => p.id !== id),
-          coreActivities: get().coreActivities.map((a) =>
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          people: ws.people.filter(p => p.id !== id),
+          coreActivities: ws.coreActivities.map(a =>
             a.ownerId === id ? { ...a, ownerId: undefined } : a
           ),
-        })
+        })))
       },
       
       // Roles
       roles: [],
       addRole: (name, description) => {
+        const state = get()
         const newRole: Role = {
           id: generateId(),
-          companyId: get().company?.id || '',
+          companyId: state.company?.id || '',
           name,
           description,
         }
-        set({ roles: [...get().roles, newRole] })
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          roles: [...ws.roles, newRole],
+        })))
         return newRole
       },
       updateRole: (id, updates) => {
-        set({
-          roles: get().roles.map((r) =>
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          roles: ws.roles.map(r =>
             r.id === id ? { ...r, ...updates } : r
           ),
-        })
+        })))
       },
       deleteRole: (id) => {
-        set({
-          roles: get().roles.filter((r) => r.id !== id),
-          coreActivities: get().coreActivities.map((a) =>
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          roles: ws.roles.filter(r => r.id !== id),
+          coreActivities: ws.coreActivities.map(a =>
             a.roleId === id ? { ...a, roleId: undefined } : a
           ),
-          people: get().people.map((p) =>
+          people: ws.people.map(p =>
             p.roleId === id ? { ...p, roleId: undefined } : p
           ),
-        })
+        })))
       },
       
       // Software
       software: [],
       addSoftware: (name, url) => {
+        const state = get()
         const newSoftware: Software = {
           id: generateId(),
-          companyId: get().company?.id || '',
+          companyId: state.company?.id || '',
           name,
           url,
         }
-        set({ software: [...get().software, newSoftware] })
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          software: [...ws.software, newSoftware],
+        })))
         return newSoftware
       },
       updateSoftware: (id, updates) => {
-        set({
-          software: get().software.map((s) =>
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          software: ws.software.map(s =>
             s.id === id ? { ...s, ...updates } : s
           ),
-        })
+        })))
       },
       deleteSoftware: (id) => {
-        set({ software: get().software.filter((s) => s.id !== id) })
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          software: ws.software.filter(s => s.id !== id),
+        })))
       },
       
       // Checklist Items
       checklistItems: [],
       addChecklistItem: (activityId, text) => {
-        const existing = get().checklistItems.filter(
-          (ci) => ci.coreActivityId === activityId
+        const state = get()
+        const existing = state.checklistItems.filter(
+          ci => ci.coreActivityId === activityId
         )
         const newItem: ChecklistItem = {
           id: generateId(),
@@ -510,38 +774,53 @@ export const useOpsMapStore = create<OpsMapState>()(
           orderIndex: existing.length,
           completed: false,
         }
-        set({ checklistItems: [...get().checklistItems, newItem] })
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          checklistItems: [...ws.checklistItems, newItem],
+        })))
         return newItem
       },
       updateChecklistItem: (id, updates) => {
-        set({
-          checklistItems: get().checklistItems.map((ci) =>
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          checklistItems: ws.checklistItems.map(ci =>
             ci.id === id ? { ...ci, ...updates } : ci
           ),
-        })
+        })))
       },
       deleteChecklistItem: (id) => {
-        set({ checklistItems: get().checklistItems.filter((ci) => ci.id !== id) })
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          checklistItems: ws.checklistItems.filter(ci => ci.id !== id),
+        })))
       },
       reorderChecklistItems: (activityId, ids) => {
-        set({
-          checklistItems: get().checklistItems.map((ci) =>
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          checklistItems: ws.checklistItems.map(ci =>
             ci.coreActivityId === activityId
               ? { ...ci, orderIndex: ids.indexOf(ci.id) }
               : ci
           ),
-        })
+        })))
       },
       getChecklistForActivity: (activityId) => {
         return get()
-          .checklistItems.filter((ci) => ci.coreActivityId === activityId)
+          .checklistItems.filter(ci => ci.coreActivityId === activityId)
           .sort((a, b) => a.orderIndex - b.orderIndex)
       },
 
       // Utility functions
       clearAllData: () => {
-        set({
-          company: { id: generateId(), name: 'My Company', createdAt: new Date() },
+        const state = get()
+        const emptyWorkspace = createEmptyWorkspace('My Company')
+        emptyWorkspace.id = state.activeWorkspaceId // Keep same ID to preserve reference
+        
+        set(state => ({
+          workspaces: state.workspaces.map(ws =>
+            ws.id === state.activeWorkspaceId ? emptyWorkspace : ws
+          ),
+          company: emptyWorkspace.company,
           functions: [],
           subFunctions: [],
           coreActivities: [],
@@ -554,27 +833,37 @@ export const useOpsMapStore = create<OpsMapState>()(
           roles: [],
           software: [],
           checklistItems: [],
-        })
+        }))
       },
 
       loadDemoData: () => {
+        const state = get()
         const companyId = generateId()
         
-        // Clear first
-        set({
-          company: { id: companyId, name: 'Summit Construction Co.', createdAt: new Date() },
-          functions: [],
-          subFunctions: [],
-          coreActivities: [],
-          subFunctionActivities: [],
-          workflows: [],
-          phases: [],
-          steps: [],
-          stepActivities: [],
-          people: [],
-          roles: [],
-          software: [],
-          checklistItems: [],
+        // First clear the current workspace
+        set(state => {
+          const emptyWorkspace = createEmptyWorkspace('Summit Construction Co.')
+          emptyWorkspace.id = state.activeWorkspaceId
+          emptyWorkspace.company.name = 'Summit Construction Co.'
+          
+          return {
+            workspaces: state.workspaces.map(ws =>
+              ws.id === state.activeWorkspaceId ? emptyWorkspace : ws
+            ),
+            company: emptyWorkspace.company,
+            functions: [],
+            subFunctions: [],
+            coreActivities: [],
+            subFunctionActivities: [],
+            workflows: [],
+            phases: [],
+            steps: [],
+            stepActivities: [],
+            people: [],
+            roles: [],
+            software: [],
+            checklistItems: [],
+          }
         })
 
         // Add roles first
@@ -706,23 +995,31 @@ export const useOpsMapStore = create<OpsMapState>()(
           const template = getTemplate(templateId)
           if (!template) return
 
-          const companyId = generateId()
+          const state = get()
           
           // Clear and set company
-          set({
-            company: { id: companyId, name: template.data.companyName, createdAt: new Date() },
-            functions: [],
-            subFunctions: [],
-            coreActivities: [],
-            subFunctionActivities: [],
-            workflows: [],
-            phases: [],
-            steps: [],
-            stepActivities: [],
-            people: [],
-            roles: [],
-            software: [],
-            checklistItems: [],
+          set(state => {
+            const emptyWorkspace = createEmptyWorkspace(template.data.companyName)
+            emptyWorkspace.id = state.activeWorkspaceId
+            
+            return {
+              workspaces: state.workspaces.map(ws =>
+                ws.id === state.activeWorkspaceId ? emptyWorkspace : ws
+              ),
+              company: emptyWorkspace.company,
+              functions: [],
+              subFunctions: [],
+              coreActivities: [],
+              subFunctionActivities: [],
+              workflows: [],
+              phases: [],
+              steps: [],
+              stepActivities: [],
+              people: [],
+              roles: [],
+              software: [],
+              checklistItems: [],
+            }
           })
 
           // Add roles
@@ -762,6 +1059,44 @@ export const useOpsMapStore = create<OpsMapState>()(
     }),
     {
       name: 'ops-map-storage',
+      version: 2, // Bump version to handle migration
+      migrate: (persistedState: any, version: number) => {
+        if (version < 2) {
+          // Migrate from single-workspace to multi-workspace
+          const oldState = persistedState as any
+          
+          // Create first workspace from existing data
+          const firstWorkspace: Workspace = {
+            id: generateId(),
+            name: oldState.company?.name || 'My Company',
+            createdAt: oldState.company?.createdAt || new Date(),
+            company: oldState.company || {
+              id: generateId(),
+              name: 'My Company',
+              createdAt: new Date(),
+            },
+            functions: oldState.functions || [],
+            subFunctions: oldState.subFunctions || [],
+            coreActivities: oldState.coreActivities || [],
+            subFunctionActivities: oldState.subFunctionActivities || [],
+            workflows: oldState.workflows || [],
+            phases: oldState.phases || [],
+            steps: oldState.steps || [],
+            stepActivities: oldState.stepActivities || [],
+            people: oldState.people || [],
+            roles: oldState.roles || [],
+            software: oldState.software || [],
+            checklistItems: oldState.checklistItems || [],
+          }
+          
+          return {
+            ...oldState,
+            workspaces: [firstWorkspace],
+            activeWorkspaceId: firstWorkspace.id,
+          }
+        }
+        return persistedState
+      },
     }
   )
 )
