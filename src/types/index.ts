@@ -31,6 +31,9 @@ export interface CoreActivity {
   ownerId?: string
   roleId?: string
   notes?: string
+  // Checklist metadata (checklists live at activity level)
+  checklistTrigger?: string    // What causes this checklist to be used
+  checklistEndState?: string   // What it looks like when complete
   createdAt: Date
 }
 
@@ -60,6 +63,7 @@ export interface Step {
   phaseId: string
   name: string
   orderIndex: number
+  sop?: string  // SOP documentation lives at step level
 }
 
 export interface StepActivity {
@@ -74,6 +78,8 @@ export interface Person {
   name: string
   email?: string
   roleId?: string
+  reportsTo?: string  // Person ID of who they report to (for org chart hierarchy)
+  title?: string      // Job title
 }
 
 export interface Role {
@@ -101,6 +107,7 @@ export interface ChecklistItem {
   text: string
   orderIndex: number
   completed: boolean
+  videoUrl?: string  // Optional video link for the checklist item
 }
 
 // Utility type for nested function chart view
@@ -123,4 +130,9 @@ export interface PhaseWithSteps extends Phase {
 
 export interface StepWithActivities extends Step {
   activities: CoreActivity[]
+}
+
+// Utility type for org chart hierarchy
+export interface PersonWithReports extends Person {
+  directReports: PersonWithReports[]
 }
