@@ -14,6 +14,7 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { GlobalSearch } from '@/components/GlobalSearch'
+import { KeyboardShortcuts } from '@/components/KeyboardShortcuts'
 
 const navigation = [
   { name: 'Function Chart', href: '/function-chart', icon: LayoutGrid },
@@ -69,14 +70,17 @@ export function Sidebar() {
 
       {/* Footer */}
       <div className="border-t border-slate-800 p-4">
-        <Link
-          href="/settings"
-          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
-        >
-          <Settings className="h-5 w-5" />
-          Settings
-        </Link>
-        <div className="mt-2 px-3 text-xs text-slate-500">
+        <div className="flex items-center gap-2 mb-2">
+          <Link
+            href="/settings"
+            className="flex-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+          >
+            <Settings className="h-5 w-5" />
+            Settings
+          </Link>
+          <KeyboardShortcuts />
+        </div>
+        <div className="px-3 text-xs text-slate-500">
           GrowthKits © 2026
         </div>
       </div>
