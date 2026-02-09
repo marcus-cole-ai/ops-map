@@ -1,278 +1,404 @@
 'use client'
 
 import { useState } from 'react'
-import { Header } from '@/components/layout/Header'
-import { Modal } from '@/components/ui/Modal'
 import { useOpsMapStore } from '@/store'
-import { Users, Plus, MoreHorizontal, Edit2, Trash2, Mail, Briefcase } from 'lucide-react'
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+import { Plus, Search, Edit, Trash2, User, Mail, Briefcase, ChevronRight } from 'lucide-react'
+import { Modal } from '@/components/ui/Modal'
+import type { Person } from '@/types'
 
 export default function PeoplePage() {
-  const people = useOpsMapStore((state) => state.people)
-  const roles = useOpsMapStore((state) => state.roles)
-  const addPerson = useOpsMapStore((state) => state.addPerson)
-  const updatePerson = useOpsMapStore((state) => state.updatePerson)
-  const deletePerson = useOpsMapStore((state) => state.deletePerson)
+  const {
+    people,
+    roles,
+    addPerson,
+    updatePerson,
+    deletePerson,
+    coreActivities,
+  } = useOpsMapStore()
 
-  const [showAddPerson, setShowAddPerson] = useState(false)
-  const [editingPerson, setEditingPerson] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [selectedPerson, setSelectedPerson] = useState<Person | null>(null)
   const [newName, setNewName] = useState('')
   const [newEmail, setNewEmail] = useState('')
   const [newRoleId, setNewRoleId] = useState('')
 
+  const filteredPeople = people.filter((person) =>
+    person.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (person.email?.toLowerCase().includes(searchQuery.toLowerCase()))
+  )
+
   const handleAddPerson = () => {
-    if (newName.trim()) {
-      const person = addPerson(newName.trim(), newEmail.trim() || undefined)
-      if (newRoleId) {
-        updatePerson(person.id, { roleId: newRoleId })
-      }
-      setNewName('')
-      setNewEmail('')
-      setNewRoleId('')
-      setShowAddPerson(false)
+    if (!newName.trim()) return
+    const person = addPerson(newName.trim(), newEmail.trim() || undefined)
+    if (newRoleId) {
+      updatePerson(person.id, { roleId: newRoleId })
+    }
+    setNewName('')
+    setNewEmail('')
+    setNewRoleId('')
+    setShowAddModal(false)
+    setSelectedPerson({ ...person, roleId: newRoleId || undefined })
+  }
+
+  const handleUpdatePerson = (updates: Partial<Person>) => {
+    if (selectedPerson) {
+      updatePerson(selectedPerson.id, updates)
+      setSelectedPerson({ ...selectedPerson, ...updates })
     }
   }
 
-  const handleUpdatePerson = () => {
-    if (editingPerson && newName.trim()) {
-      updatePerson(editingPerson, {
-        name: newName.trim(),
-        email: newEmail.trim() || undefined,
-        roleId: newRoleId || undefined,
-      })
-      setNewName('')
-      setNewEmail('')
-      setNewRoleId('')
-      setEditingPerson(null)
-    }
+  const getRoleName = (roleId?: string) => {
+    if (!roleId) return null
+    const role = roles.find(r => r.id === roleId)
+    return role?.name || null
+  }
+
+  const getActivityCount = (personId: string) => {
+    return coreActivities.filter(a => a.ownerId === personId).length
   }
 
   return (
-    <div>
-      <Header
-        title="People"
-        description="Team members who perform activities"
-        action={{
-          label: 'Add Person',
-          onClick: () => setShowAddPerson(true),
-        }}
-      />
-
-      <div className="p-6">
-        {people.length === 0 ? (
-          <div className="rounded-xl border-2 border-dashed border-slate-300 bg-white p-12 text-center">
-            <div className="mx-auto h-12 w-12 rounded-full bg-orange-100 p-3">
-              <Users className="h-6 w-6 text-orange-600" />
-            </div>
-            <h3 className="mt-4 text-lg font-semibold text-slate-900">No people yet</h3>
-            <p className="mt-2 text-sm text-slate-500">
-              Add team members to assign them as owners of activities.
-            </p>
+    <div className="flex h-full" style={{ background: 'var(--cream)' }}>
+      {/* List Panel */}
+      <div 
+        className="w-96 flex-shrink-0 flex flex-col h-full"
+        style={{ borderRight: '1px solid var(--stone)' }}
+      >
+        {/* Header */}
+        <div className="flex-shrink-0 px-6 py-5" style={{ background: 'var(--gk-charcoal)' }}>
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-xl font-bold text-white">People</h1>
             <button
-              onClick={() => setShowAddPerson(true)}
-              className="mt-4 rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700"
+              onClick={() => setShowAddModal(true)}
+              className="p-2 rounded-lg transition-colors"
+              style={{ background: 'var(--gk-green)' }}
             >
-              Add Your First Person
+              <Plus className="h-5 w-5 text-white" />
             </button>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {people.map((person) => {
-              const role = person.roleId ? roles.find(r => r.id === person.roleId) : null
-              return (
-                <div
-                  key={person.id}
-                  className="rounded-xl border border-slate-200 bg-white p-4"
+          
+          {/* Search */}
+          <div className="relative">
+            <Search 
+              className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4"
+              style={{ color: 'var(--text-muted)' }}
+            />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search people..."
+              className="w-full pl-10 pr-4 py-2 rounded-lg text-sm"
+              style={{ 
+                background: 'rgba(255,255,255,0.1)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                color: 'white'
+              }}
+            />
+          </div>
+        </div>
+
+        {/* People List */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {filteredPeople.length === 0 ? (
+            <div className="text-center py-8">
+              <p style={{ color: 'var(--text-muted)' }}>
+                {searchQuery ? 'No people match your search' : 'No people added yet'}
+              </p>
+              {!searchQuery && (
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="mt-4 px-4 py-2 rounded-lg font-medium text-white"
+                  style={{ background: 'var(--gk-green)' }}
                 >
-                  <div className="flex items-start justify-between">
+                  Add First Person
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filteredPeople.map((person) => {
+                const roleName = getRoleName(person.roleId)
+                const activityCount = getActivityCount(person.id)
+                const isSelected = selectedPerson?.id === person.id
+
+                return (
+                  <div
+                    key={person.id}
+                    onClick={() => setSelectedPerson(person)}
+                    className="p-4 rounded-lg cursor-pointer transition-all"
+                    style={{ 
+                      background: isSelected ? 'var(--mint)' : 'var(--white)',
+                      border: `1px solid ${isSelected ? 'var(--gk-green)' : 'var(--stone)'}`,
+                    }}
+                  >
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100 text-orange-600 font-semibold">
+                      <div 
+                        className="w-10 h-10 rounded-full flex items-center justify-center"
+                        style={{ background: 'var(--gk-green)', color: 'white' }}
+                      >
                         {person.name.charAt(0).toUpperCase()}
                       </div>
-                      <div>
-                        <h3 className="font-semibold text-slate-900">{person.name}</h3>
-                        {role && (
-                          <p className="text-xs text-slate-500 flex items-center gap-1">
-                            <Briefcase className="h-3 w-3" />
-                            {role.name}
-                          </p>
-                        )}
+                      <div className="flex-1 min-w-0">
+                        <h3 
+                          className="font-medium truncate"
+                          style={{ color: 'var(--text-primary)' }}
+                        >
+                          {person.name}
+                        </h3>
+                        <div className="flex items-center gap-2 mt-1">
+                          {roleName && (
+                            <span 
+                              className="text-xs px-2 py-0.5 rounded"
+                              style={{ background: 'var(--dusty-blue)', color: '#3d4f5f' }}
+                            >
+                              {roleName}
+                            </span>
+                          )}
+                          {activityCount > 0 && (
+                            <span 
+                              className="text-xs"
+                              style={{ color: 'var(--text-muted)' }}
+                            >
+                              {activityCount} activities
+                            </span>
+                          )}
+                        </div>
                       </div>
+                      <ChevronRight 
+                        className="h-5 w-5 flex-shrink-0"
+                        style={{ color: 'var(--text-muted)' }}
+                      />
                     </div>
-                    <DropdownMenu.Root>
-                      <DropdownMenu.Trigger asChild>
-                        <button className="p-1 hover:bg-slate-100 rounded">
-                          <MoreHorizontal className="h-4 w-4 text-slate-500" />
-                        </button>
-                      </DropdownMenu.Trigger>
-                      <DropdownMenu.Portal>
-                        <DropdownMenu.Content className="min-w-[140px] bg-white rounded-lg shadow-lg border border-slate-200 p-1 z-50">
-                          <DropdownMenu.Item
-                            className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded cursor-pointer outline-none"
-                            onClick={() => {
-                              setNewName(person.name)
-                              setNewEmail(person.email || '')
-                              setNewRoleId(person.roleId || '')
-                              setEditingPerson(person.id)
-                            }}
-                          >
-                            <Edit2 className="h-4 w-4" /> Edit
-                          </DropdownMenu.Item>
-                          <DropdownMenu.Item
-                            className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded cursor-pointer outline-none"
-                            onClick={() => deletePerson(person.id)}
-                          >
-                            <Trash2 className="h-4 w-4" /> Delete
-                          </DropdownMenu.Item>
-                        </DropdownMenu.Content>
-                      </DropdownMenu.Portal>
-                    </DropdownMenu.Root>
                   </div>
-                  {person.email && (
-                    <div className="mt-3 flex items-center gap-2 text-sm text-slate-500">
-                      <Mail className="h-4 w-4" />
-                      {person.email}
-                    </div>
-                  )}
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Detail Panel */}
+      <div className="flex-1 overflow-y-auto">
+        {selectedPerson ? (
+          <div className="p-8 max-w-2xl">
+            {/* Person Header */}
+            <div className="flex items-start gap-4 mb-6">
+              <div 
+                className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold"
+                style={{ background: 'var(--gk-green)', color: 'white' }}
+              >
+                {selectedPerson.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1">
+                <input
+                  type="text"
+                  value={selectedPerson.name}
+                  onChange={(e) => handleUpdatePerson({ name: e.target.value })}
+                  className="text-2xl font-bold w-full bg-transparent border-none focus:outline-none"
+                  style={{ color: 'var(--text-primary)' }}
+                />
+              </div>
+              <button
+                onClick={() => {
+                  deletePerson(selectedPerson.id)
+                  setSelectedPerson(null)
+                }}
+                className="p-2 rounded-lg transition-colors hover:bg-red-100"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                <Trash2 className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Email */}
+            <div className="mb-6">
+              <label 
+                className="block text-xs font-semibold uppercase tracking-wider mb-2"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                Email
+              </label>
+              <div className="relative">
+                <Mail 
+                  className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4"
+                  style={{ color: 'var(--text-muted)' }}
+                />
+                <input
+                  type="email"
+                  value={selectedPerson.email || ''}
+                  onChange={(e) => handleUpdatePerson({ email: e.target.value })}
+                  placeholder="Add email..."
+                  className="w-full pl-10 pr-4 py-3 rounded-lg border"
+                  style={{ 
+                    borderColor: 'var(--stone)', 
+                    background: 'var(--white)',
+                    color: 'var(--text-primary)'
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Role */}
+            <div className="mb-6">
+              <label 
+                className="block text-xs font-semibold uppercase tracking-wider mb-2"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                Role
+              </label>
+              <select
+                value={selectedPerson.roleId || ''}
+                onChange={(e) => handleUpdatePerson({ roleId: e.target.value || undefined })}
+                className="w-full px-4 py-3 rounded-lg border"
+                style={{ 
+                  borderColor: 'var(--stone)', 
+                  background: 'var(--white)',
+                  color: 'var(--text-primary)'
+                }}
+              >
+                <option value="">Select role...</option>
+                {roles.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Activity Count */}
+            <div 
+              className="p-4 rounded-lg"
+              style={{ background: 'var(--cream-light)', border: '1px solid var(--stone)' }}
+            >
+              <div className="flex items-center gap-3">
+                <div 
+                  className="p-2 rounded-lg"
+                  style={{ background: 'var(--mint)' }}
+                >
+                  <Briefcase className="h-5 w-5" style={{ color: 'var(--gk-green)' }} />
                 </div>
-              )
-            })}
+                <div>
+                  <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                    {getActivityCount(selectedPerson.id)}
+                  </div>
+                  <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                    Activities owned
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <div 
+                className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+                style={{ background: 'var(--cream-light)' }}
+              >
+                <User className="h-8 w-8" style={{ color: 'var(--text-muted)' }} />
+              </div>
+              <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                Select a Person
+              </h2>
+              <p style={{ color: 'var(--text-muted)' }}>
+                Choose someone from the list to view and edit their details
+              </p>
+            </div>
           </div>
         )}
       </div>
 
       {/* Add Person Modal */}
       <Modal
-        open={showAddPerson}
+        isOpen={showAddModal}
         onClose={() => {
-          setShowAddPerson(false)
+          setShowAddModal(false)
           setNewName('')
           setNewEmail('')
           setNewRoleId('')
         }}
         title="Add Person"
-        description="Add a team member to assign activities to."
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+              Name
+            </label>
             <input
               type="text"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="e.g., John Smith"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+              placeholder="Full name"
+              className="w-full px-4 py-2 rounded-lg border"
+              style={{ 
+                borderColor: 'var(--stone)', 
+                background: 'var(--white)',
+                color: 'var(--text-primary)'
+              }}
               autoFocus
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Email (optional)</label>
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+              Email (optional)
+            </label>
             <input
               type="email"
               value={newEmail}
               onChange={(e) => setNewEmail(e.target.value)}
-              placeholder="john@company.com"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+              placeholder="email@company.com"
+              className="w-full px-4 py-2 rounded-lg border"
+              style={{ 
+                borderColor: 'var(--stone)', 
+                background: 'var(--white)',
+                color: 'var(--text-primary)'
+              }}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Role (optional)</label>
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+              Role (optional)
+            </label>
             <select
               value={newRoleId}
               onChange={(e) => setNewRoleId(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+              className="w-full px-4 py-2 rounded-lg border"
+              style={{ 
+                borderColor: 'var(--stone)', 
+                background: 'var(--white)',
+                color: 'var(--text-primary)'
+              }}
             >
-              <option value="">No role</option>
-              {roles.map(role => (
-                <option key={role.id} value={role.id}>{role.name}</option>
+              <option value="">Select role...</option>
+              {roles.map((role) => (
+                <option key={role.id} value={role.id}>
+                  {role.name}
+                </option>
               ))}
             </select>
           </div>
-          <div className="flex justify-end gap-3">
+          <div className="flex justify-end gap-3 pt-2">
             <button
               onClick={() => {
-                setShowAddPerson(false)
+                setShowAddModal(false)
                 setNewName('')
                 setNewEmail('')
                 setNewRoleId('')
               }}
-              className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg"
+              className="px-4 py-2 rounded-lg font-medium"
+              style={{ color: 'var(--text-secondary)' }}
             >
               Cancel
             </button>
             <button
               onClick={handleAddPerson}
               disabled={!newName.trim()}
-              className="px-4 py-2 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-lg disabled:opacity-50"
+              className="px-4 py-2 rounded-lg font-medium text-white disabled:opacity-50"
+              style={{ background: 'var(--gk-green)' }}
             >
               Add Person
-            </button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Edit Person Modal */}
-      <Modal
-        open={editingPerson !== null}
-        onClose={() => {
-          setEditingPerson(null)
-          setNewName('')
-          setNewEmail('')
-          setNewRoleId('')
-        }}
-        title="Edit Person"
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
-            <input
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
-              autoFocus
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Email (optional)</label>
-            <input
-              type="email"
-              value={newEmail}
-              onChange={(e) => setNewEmail(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Role (optional)</label>
-            <select
-              value={newRoleId}
-              onChange={(e) => setNewRoleId(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
-            >
-              <option value="">No role</option>
-              {roles.map(role => (
-                <option key={role.id} value={role.id}>{role.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex justify-end gap-3">
-            <button
-              onClick={() => {
-                setEditingPerson(null)
-                setNewName('')
-                setNewEmail('')
-                setNewRoleId('')
-              }}
-              className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleUpdatePerson}
-              disabled={!newName.trim()}
-              className="px-4 py-2 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-lg disabled:opacity-50"
-            >
-              Save Changes
             </button>
           </div>
         </div>

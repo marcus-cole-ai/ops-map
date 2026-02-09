@@ -1,207 +1,433 @@
 'use client'
 
-import { Header } from '@/components/layout/Header'
 import { useOpsMapStore } from '@/store'
-import { AlertCircle, CheckCircle, ChevronRight, LayoutGrid, GitBranch, Activity, User, Briefcase } from 'lucide-react'
 import Link from 'next/link'
+import { AlertCircle, CheckCircle2, User, Briefcase, ArrowRight, Activity, LayoutGrid, GitBranch } from 'lucide-react'
 
-interface GapItem {
-  type: 'function' | 'subfunction' | 'phase' | 'activity'
-  severity: 'warning' | 'info'
-  title: string
-  description: string
-  link: string
-  linkText: string
-}
+export default function GapAnalysisPage() {
+  const {
+    functions,
+    subFunctions,
+    coreActivities,
+    workflows,
+    phases,
+    steps,
+    people,
+    roles,
+    subFunctionActivities,
+    stepActivities,
+  } = useOpsMapStore()
 
-export default function GapsPage() {
-  const functions = useOpsMapStore((state) => state.functions)
-  const subFunctions = useOpsMapStore((state) => state.subFunctions)
-  const coreActivities = useOpsMapStore((state) => state.coreActivities)
-  const workflows = useOpsMapStore((state) => state.workflows)
-  const phases = useOpsMapStore((state) => state.phases)
-  const steps = useOpsMapStore((state) => state.steps)
-  const subFunctionActivities = useOpsMapStore((state) => state.subFunctionActivities)
-  const stepActivities = useOpsMapStore((state) => state.stepActivities)
-  const people = useOpsMapStore((state) => state.people)
-  const roles = useOpsMapStore((state) => state.roles)
-
-  // Calculate gaps
-  const gaps: GapItem[] = []
-
-  // Functions with no sub-functions
-  const functionsWithNoSubs = functions.filter(
-    f => !subFunctions.some(sf => sf.functionId === f.id)
+  // Activities without owner or role
+  const unassignedActivities = coreActivities.filter(
+    (a) => !a.ownerId && !a.roleId
   )
-  functionsWithNoSubs.forEach(f => {
-    gaps.push({
-      type: 'function',
-      severity: 'warning',
-      title: `"${f.name}" has no sub-functions`,
-      description: 'Add sub-functions to break down this area of your business.',
-      link: '/function-chart',
-      linkText: 'Go to Function Chart',
-    })
+
+  // Activities with owner
+  const activitiesWithOwner = coreActivities.filter((a) => a.ownerId)
+
+  // Activities with role
+  const activitiesWithRole = coreActivities.filter((a) => a.roleId)
+
+  // Sub-functions without activities
+  const subFunctionsWithoutActivities = subFunctions.filter((sf) => {
+    const links = subFunctionActivities.filter((sfa) => sfa.subFunctionId === sf.id)
+    return links.length === 0
   })
 
-  // Sub-functions with no activities
-  const subFunctionsWithNoActivities = subFunctions.filter(
-    sf => !subFunctionActivities.some(sfa => sfa.subFunctionId === sf.id)
-  )
-  subFunctionsWithNoActivities.forEach(sf => {
+  // Steps without activities
+  const stepsWithoutActivities = steps.filter((s) => {
+    const links = stepActivities.filter((sa) => sa.stepId === s.id)
+    return links.length === 0
+  })
+
+  // Functions without sub-functions
+  const functionsWithoutSubFunctions = functions.filter((f) => {
+    return !subFunctions.some((sf) => sf.functionId === f.id)
+  })
+
+  // Workflows without phases
+  const workflowsWithoutPhases = workflows.filter((w) => {
+    return !phases.some((p) => p.workflowId === w.id)
+  })
+
+  // Phases without steps
+  const phasesWithoutSteps = phases.filter((p) => {
+    return !steps.some((s) => s.phaseId === p.id)
+  })
+
+  // Calculate completion score
+  const totalItems = coreActivities.length + subFunctions.length + steps.length + functions.length + workflows.length + phases.length
+  const issues = unassignedActivities.length + subFunctionsWithoutActivities.length + stepsWithoutActivities.length + 
+    functionsWithoutSubFunctions.length + workflowsWithoutPhases.length + phasesWithoutSteps.length
+  const completionScore = totalItems > 0 ? Math.round(((totalItems - issues) / totalItems) * 100) : 100
+
+  const getParentName = (subFunctionId: string) => {
+    const sf = subFunctions.find(s => s.id === subFunctionId)
+    if (!sf) return ''
     const func = functions.find(f => f.id === sf.functionId)
-    gaps.push({
-      type: 'subfunction',
-      severity: 'warning',
-      title: `"${sf.name}" has no activities`,
-      description: `Under ${func?.name || 'Unknown'} — add core activities to define what happens here.`,
-      link: '/function-chart',
-      linkText: 'Go to Function Chart',
-    })
-  })
+    return func?.name || ''
+  }
 
-  // Phases with no steps
-  const phasesWithNoSteps = phases.filter(
-    p => !steps.some(s => s.phaseId === p.id)
-  )
-  phasesWithNoSteps.forEach(p => {
-    const workflow = workflows.find(w => w.id === p.workflowId)
-    gaps.push({
-      type: 'phase',
-      severity: 'warning',
-      title: `"${p.name}" phase has no steps`,
-      description: `In ${workflow?.name || 'Unknown'} workflow — add steps to define the work in this phase.`,
-      link: `/workflows/${p.workflowId}`,
-      linkText: 'Go to Workflow',
-    })
-  })
+  const getWorkflowName = (phaseId: string) => {
+    const phase = phases.find(p => p.id === phaseId)
+    if (!phase) return ''
+    const workflow = workflows.find(w => w.id === phase.workflowId)
+    return workflow?.name || ''
+  }
 
-  // Activities with no owner
-  const activitiesWithNoOwner = coreActivities.filter(a => !a.ownerId)
-  activitiesWithNoOwner.forEach(a => {
-    gaps.push({
-      type: 'activity',
-      severity: 'info',
-      title: `"${a.name}" has no owner`,
-      description: 'Assign a person to take responsibility for this activity.',
-      link: '/activities',
-      linkText: 'Go to Activities',
-    })
-  })
-
-  // Activities with no role
-  const activitiesWithNoRole = coreActivities.filter(a => !a.roleId)
-  activitiesWithNoRole.forEach(a => {
-    gaps.push({
-      type: 'activity',
-      severity: 'info',
-      title: `"${a.name}" has no role assigned`,
-      description: 'Assign a role to clarify who should own this type of work.',
-      link: '/activities',
-      linkText: 'Go to Activities',
-    })
-  })
-
-  // Stats
-  const warningCount = gaps.filter(g => g.severity === 'warning').length
-  const infoCount = gaps.filter(g => g.severity === 'info').length
-
-  const stats = [
-    { label: 'Functions', value: functions.length, icon: LayoutGrid, color: 'bg-blue-500' },
-    { label: 'Workflows', value: workflows.length, icon: GitBranch, color: 'bg-emerald-500' },
-    { label: 'Activities', value: coreActivities.length, icon: Activity, color: 'bg-violet-500' },
-    { label: 'People', value: people.length, icon: User, color: 'bg-orange-500' },
-    { label: 'Roles', value: roles.length, icon: Briefcase, color: 'bg-pink-500' },
-  ]
+  const getPhaseName = (stepId: string) => {
+    const step = steps.find(s => s.id === stepId)
+    if (!step) return ''
+    const phase = phases.find(p => p.id === step.phaseId)
+    return phase?.name || ''
+  }
 
   return (
-    <div>
-      <Header
-        title="Gap Analysis"
-        description="Identify incomplete areas in your operations map"
-      />
+    <div className="min-h-full p-8" style={{ background: 'var(--cream)' }}>
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+          Gap Analysis
+        </h1>
+        <p style={{ color: 'var(--text-secondary)' }}>
+          Identify incomplete areas in your operations map
+        </p>
+      </div>
 
-      <div className="p-6">
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-          {stats.map(stat => (
-            <div key={stat.label} className="bg-white rounded-xl border border-slate-200 p-4">
-              <div className="flex items-center gap-3">
-                <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${stat.color}`}>
-                  <stat.icon className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
-                  <p className="text-xs text-slate-500">{stat.label}</p>
-                </div>
-              </div>
-            </div>
-          ))}
+      {/* Score Card */}
+      <div 
+        className="rounded-xl p-6 mb-8"
+        style={{ background: 'var(--white)', border: '1px solid var(--stone)' }}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+              Operations Completeness
+            </h2>
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              {issues === 0 ? 'All items are properly configured!' : `${issues} items need attention`}
+            </p>
+          </div>
+          <div 
+            className="text-4xl font-bold"
+            style={{ 
+              color: completionScore >= 80 ? 'var(--gk-green)' : completionScore >= 50 ? '#b8956e' : '#c4785a'
+            }}
+          >
+            {completionScore}%
+          </div>
         </div>
+        <div 
+          className="h-4 rounded-full overflow-hidden"
+          style={{ background: 'var(--cream)' }}
+        >
+          <div 
+            className="h-full rounded-full transition-all duration-500"
+            style={{ 
+              width: `${completionScore}%`,
+              background: completionScore >= 80 ? 'var(--gk-green)' : completionScore >= 50 ? '#b8956e' : '#c4785a'
+            }}
+          />
+        </div>
+      </div>
 
-        {/* Summary */}
-        <div className="flex items-center gap-6 mb-6">
-          {gaps.length === 0 ? (
-            <div className="flex items-center gap-2 text-emerald-600">
-              <CheckCircle className="h-5 w-5" />
-              <span className="font-medium">All complete! No gaps found.</span>
+      {/* Gap Sections */}
+      <div className="space-y-6">
+        {/* Unassigned Activities */}
+        <div 
+          className="rounded-xl overflow-hidden"
+          style={{ background: 'var(--white)', border: '1px solid var(--stone)' }}
+        >
+          <div 
+            className="px-6 py-4 flex items-center justify-between"
+            style={{ background: unassignedActivities.length > 0 ? '#c4785a' : 'var(--gk-green)' }}
+          >
+            <div className="flex items-center gap-3">
+              {unassignedActivities.length > 0 ? (
+                <AlertCircle className="h-5 w-5 text-white" />
+              ) : (
+                <CheckCircle2 className="h-5 w-5 text-white" />
+              )}
+              <h3 className="font-semibold text-white">
+                Activities Without Owner/Role
+              </h3>
             </div>
-          ) : (
-            <>
-              {warningCount > 0 && (
-                <div className="flex items-center gap-2 text-amber-600">
-                  <AlertCircle className="h-5 w-5" />
-                  <span className="font-medium">{warningCount} structural gaps</span>
-                </div>
-              )}
-              {infoCount > 0 && (
-                <div className="flex items-center gap-2 text-blue-600">
-                  <AlertCircle className="h-5 w-5" />
-                  <span className="font-medium">{infoCount} assignments missing</span>
-                </div>
-              )}
-            </>
+            <span 
+              className="px-3 py-1 rounded-full text-sm font-medium"
+              style={{ background: 'rgba(255,255,255,0.2)', color: 'white' }}
+            >
+              {unassignedActivities.length}
+            </span>
+          </div>
+          
+          {unassignedActivities.length > 0 && (
+            <div className="p-6">
+              <div className="space-y-2">
+                {unassignedActivities.slice(0, 10).map((activity) => (
+                  <div
+                    key={activity.id}
+                    className="flex items-center justify-between p-3 rounded-lg"
+                    style={{ background: 'var(--cream-light)' }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Activity className="h-4 w-4" style={{ color: 'var(--text-muted)' }} />
+                      <span style={{ color: 'var(--text-primary)' }}>{activity.name}</span>
+                    </div>
+                    <Link
+                      href={`/activities?id=${activity.id}`}
+                      className="text-sm font-medium flex items-center gap-1"
+                      style={{ color: 'var(--gk-green)' }}
+                    >
+                      Assign
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </div>
+                ))}
+                {unassignedActivities.length > 10 && (
+                  <p className="text-sm text-center pt-2" style={{ color: 'var(--text-muted)' }}>
+                    +{unassignedActivities.length - 10} more
+                  </p>
+                )}
+              </div>
+              <Link
+                href="/activities"
+                className="flex items-center justify-center gap-2 mt-4 px-4 py-2 rounded-lg font-medium"
+                style={{ background: 'var(--mint)', color: 'var(--gk-green-dark)' }}
+              >
+                View All Core Activities
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
           )}
         </div>
 
-        {/* Gap List */}
-        {gaps.length > 0 && (
-          <div className="space-y-3">
-            {gaps.map((gap, i) => (
-              <div
-                key={i}
-                className={`rounded-xl border bg-white p-4 ${
-                  gap.severity === 'warning' ? 'border-amber-200' : 'border-slate-200'
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <div className={`mt-0.5 ${gap.severity === 'warning' ? 'text-amber-500' : 'text-blue-500'}`}>
-                    <AlertCircle className="h-5 w-5" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-medium text-slate-900">{gap.title}</h3>
-                    <p className="text-sm text-slate-500 mt-1">{gap.description}</p>
-                  </div>
-                  <Link
-                    href={gap.link}
-                    className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 whitespace-nowrap"
+        {/* Sub-Functions Without Activities */}
+        <div 
+          className="rounded-xl overflow-hidden"
+          style={{ background: 'var(--white)', border: '1px solid var(--stone)' }}
+        >
+          <div 
+            className="px-6 py-4 flex items-center justify-between"
+            style={{ background: subFunctionsWithoutActivities.length > 0 ? '#b8956e' : 'var(--gk-green)' }}
+          >
+            <div className="flex items-center gap-3">
+              {subFunctionsWithoutActivities.length > 0 ? (
+                <AlertCircle className="h-5 w-5 text-white" />
+              ) : (
+                <CheckCircle2 className="h-5 w-5 text-white" />
+              )}
+              <h3 className="font-semibold text-white">
+                Sub-Functions Without Activities
+              </h3>
+            </div>
+            <span 
+              className="px-3 py-1 rounded-full text-sm font-medium"
+              style={{ background: 'rgba(255,255,255,0.2)', color: 'white' }}
+            >
+              {subFunctionsWithoutActivities.length}
+            </span>
+          </div>
+          
+          {subFunctionsWithoutActivities.length > 0 && (
+            <div className="p-6">
+              <div className="space-y-2">
+                {subFunctionsWithoutActivities.slice(0, 10).map((sf) => (
+                  <div
+                    key={sf.id}
+                    className="flex items-center justify-between p-3 rounded-lg"
+                    style={{ background: 'var(--cream-light)' }}
                   >
-                    {gap.linkText}
-                    <ChevronRight className="h-4 w-4" />
-                  </Link>
-                </div>
+                    <div className="flex items-center gap-3">
+                      <LayoutGrid className="h-4 w-4" style={{ color: 'var(--text-muted)' }} />
+                      <div>
+                        <span style={{ color: 'var(--text-primary)' }}>{sf.name}</span>
+                        <span className="text-xs ml-2" style={{ color: 'var(--text-muted)' }}>
+                          in {getParentName(sf.id)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+              <Link
+                href="/function-chart"
+                className="flex items-center justify-center gap-2 mt-4 px-4 py-2 rounded-lg font-medium"
+                style={{ background: 'var(--mint)', color: 'var(--gk-green-dark)' }}
+              >
+                View Function Chart
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          )}
+        </div>
+
+        {/* Steps Without Activities */}
+        <div 
+          className="rounded-xl overflow-hidden"
+          style={{ background: 'var(--white)', border: '1px solid var(--stone)' }}
+        >
+          <div 
+            className="px-6 py-4 flex items-center justify-between"
+            style={{ background: stepsWithoutActivities.length > 0 ? '#b8956e' : 'var(--gk-green)' }}
+          >
+            <div className="flex items-center gap-3">
+              {stepsWithoutActivities.length > 0 ? (
+                <AlertCircle className="h-5 w-5 text-white" />
+              ) : (
+                <CheckCircle2 className="h-5 w-5 text-white" />
+              )}
+              <h3 className="font-semibold text-white">
+                Workflow Steps Without Activities
+              </h3>
+            </div>
+            <span 
+              className="px-3 py-1 rounded-full text-sm font-medium"
+              style={{ background: 'rgba(255,255,255,0.2)', color: 'white' }}
+            >
+              {stepsWithoutActivities.length}
+            </span>
+          </div>
+          
+          {stepsWithoutActivities.length > 0 && (
+            <div className="p-6">
+              <div className="space-y-2">
+                {stepsWithoutActivities.slice(0, 10).map((step) => {
+                  const phase = phases.find(p => p.id === step.phaseId)
+                  const workflow = phase ? workflows.find(w => w.id === phase.workflowId) : null
+                  return (
+                    <div
+                      key={step.id}
+                      className="flex items-center justify-between p-3 rounded-lg"
+                      style={{ background: 'var(--cream-light)' }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <GitBranch className="h-4 w-4" style={{ color: 'var(--text-muted)' }} />
+                        <div>
+                          <span style={{ color: 'var(--text-primary)' }}>{step.name}</span>
+                          <span className="text-xs ml-2" style={{ color: 'var(--text-muted)' }}>
+                            {workflow?.name} → {phase?.name}
+                          </span>
+                        </div>
+                      </div>
+                      {workflow && (
+                        <Link
+                          href={`/workflows/${workflow.id}`}
+                          className="text-sm font-medium flex items-center gap-1"
+                          style={{ color: 'var(--gk-green)' }}
+                        >
+                          View
+                          <ArrowRight className="h-4 w-4" />
+                        </Link>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+              <Link
+                href="/workflows"
+                className="flex items-center justify-center gap-2 mt-4 px-4 py-2 rounded-lg font-medium"
+                style={{ background: 'var(--mint)', color: 'var(--gk-green-dark)' }}
+              >
+                View Workflows
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          )}
+        </div>
+
+        {/* Empty Structures */}
+        {(functionsWithoutSubFunctions.length > 0 || workflowsWithoutPhases.length > 0 || phasesWithoutSteps.length > 0) && (
+          <div 
+            className="rounded-xl overflow-hidden"
+            style={{ background: 'var(--white)', border: '1px solid var(--stone)' }}
+          >
+            <div 
+              className="px-6 py-4 flex items-center gap-3"
+              style={{ background: 'var(--dusty-blue)' }}
+            >
+              <AlertCircle className="h-5 w-5" style={{ color: '#3d4f5f' }} />
+              <h3 className="font-semibold" style={{ color: '#3d4f5f' }}>
+                Empty Structures
+              </h3>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              {functionsWithoutSubFunctions.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                    Functions without sub-functions ({functionsWithoutSubFunctions.length})
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {functionsWithoutSubFunctions.map((f) => (
+                      <span 
+                        key={f.id}
+                        className="px-3 py-1 rounded-full text-sm"
+                        style={{ background: 'var(--cream)', color: 'var(--text-secondary)' }}
+                      >
+                        {f.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {workflowsWithoutPhases.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                    Workflows without phases ({workflowsWithoutPhases.length})
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {workflowsWithoutPhases.map((w) => (
+                      <span 
+                        key={w.id}
+                        className="px-3 py-1 rounded-full text-sm"
+                        style={{ background: 'var(--cream)', color: 'var(--text-secondary)' }}
+                      >
+                        {w.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {phasesWithoutSteps.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                    Phases without steps ({phasesWithoutSteps.length})
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {phasesWithoutSteps.map((p) => {
+                      const workflow = workflows.find(w => w.id === p.workflowId)
+                      return (
+                        <span 
+                          key={p.id}
+                          className="px-3 py-1 rounded-full text-sm"
+                          style={{ background: 'var(--cream)', color: 'var(--text-secondary)' }}
+                        >
+                          {workflow?.name} → {p.name}
+                        </span>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
-        {/* Empty state */}
-        {gaps.length === 0 && (
-          <div className="rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50 p-12 text-center">
-            <CheckCircle className="mx-auto h-12 w-12 text-emerald-500" />
-            <h3 className="mt-4 text-lg font-semibold text-slate-900">Operations map is complete!</h3>
-            <p className="mt-2 text-sm text-slate-500">
-              All functions have sub-functions, all sub-functions have activities, and all phases have steps.
+        {/* All Clear */}
+        {issues === 0 && (
+          <div 
+            className="rounded-xl p-8 text-center"
+            style={{ background: 'var(--mint)', border: '1px solid var(--gk-green)' }}
+          >
+            <CheckCircle2 className="h-12 w-12 mx-auto mb-4" style={{ color: 'var(--gk-green)' }} />
+            <h3 className="text-xl font-semibold mb-2" style={{ color: 'var(--gk-green-dark)' }}>
+              All Clear!
+            </h3>
+            <p style={{ color: 'var(--gk-green-dark)' }}>
+              Your operations map is fully configured. Great work!
             </p>
           </div>
         )}

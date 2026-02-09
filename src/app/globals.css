@@ -1,5 +1,45 @@
 @import "tailwindcss";
 
+/* GrowthKits Design System */
+:root {
+  /* GrowthKits Core */
+  --gk-green: #7b9d76;
+  --gk-green-light: #9ab896;
+  --gk-green-dark: #5a7a55;
+  --gk-charcoal: #393934;
+  
+  /* Extended Neutral Palette */
+  --cream: #f0ebe0;
+  --cream-light: #f7f4ed;
+  --mint: #e5f2e9;
+  --mint-dark: #c8e0ce;
+  --sand: #f2e8c9;
+  --stone: #d4d0c7;
+  --white: #ffffff;
+  --navy: #1a2235;
+  --dusty-blue: #b8c4ce;
+  
+  /* Functional */
+  --text-primary: #393934;
+  --text-secondary: #5a5a54;
+  --text-muted: #8a8a84;
+  
+  /* Function Colors */
+  --func-sales: #7b9d76;
+  --func-design: #d4a5a5;
+  --func-production: #c4785a;
+  --func-finance: #3d4f5f;
+  --func-marketing: #5a7a55;
+  --func-admin: #8b6b7b;
+  --func-estimating: #b8956e;
+}
+
+body {
+  font-family: Helvetica, Arial, sans-serif;
+  background: var(--cream);
+  color: var(--text-primary);
+}
+
 /* Print styles for exports */
 @media print {
   .no-print {
@@ -19,31 +59,16 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: var(--cream);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: var(--stone);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-
-/* React Flow custom styles */
-.react-flow__minimap {
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.react-flow__controls {
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.react-flow__controls-button {
-  border: none;
+  background: var(--gk-green-light);
 }
 
 /* Animation for loading states */
@@ -62,7 +87,7 @@
 
 /* Focus styles */
 *:focus-visible {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid var(--gk-green);
   outline-offset: 2px;
 }
 
@@ -71,4 +96,144 @@
   transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
+}
+
+/* GrowthKits Card Styles */
+.gk-card {
+  background: var(--white);
+  border: 1px solid var(--stone);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.gk-card-header {
+  background: var(--gk-charcoal);
+  padding: 20px 24px;
+  color: var(--white);
+}
+
+.gk-card-body {
+  padding: 24px;
+}
+
+/* Activity Styles */
+.activity-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--cream-light);
+  border-left: 3px solid var(--stone);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  border-radius: 0 4px 4px 0;
+}
+
+.activity-item.milestone {
+  background: var(--mint);
+  border-left-color: var(--gk-green);
+  color: var(--gk-green-dark);
+  font-weight: 600;
+}
+
+.activity-item.decision {
+  background: var(--sand);
+  border-left-color: #d4a854;
+  color: var(--text-primary);
+}
+
+.activity-item.gap {
+  background: var(--dusty-blue);
+  border-left: 3px dashed #8a9caa;
+  color: var(--text-primary);
+}
+
+/* Wait State */
+.wait-state {
+  margin: 20px 0;
+  padding: 20px 24px;
+  background: var(--cream-light);
+  border: 2px dashed var(--stone);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Handoff */
+.handoff {
+  margin: 20px 0;
+  padding: 24px;
+  background: var(--navy);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  color: var(--white);
+}
+
+/* Phase Arrow */
+.phase-arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 0;
+}
+
+.phase-arrow-line {
+  width: 3px;
+  height: 32px;
+  background: var(--gk-green);
+  border-radius: 2px;
+}
+
+.phase-arrow-head {
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 10px solid var(--gk-green);
+}
+
+/* Badge Styles */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge-gap {
+  background: var(--dusty-blue);
+  color: #5a6d7a;
+}
+
+.badge-green {
+  background: var(--mint);
+  color: var(--gk-green-dark);
+}
+
+/* Horizontal Scroll Hint */
+.scroll-hint {
+  color: var(--gk-green-light);
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  opacity: 0.8;
+}
+
+.scroll-hint svg {
+  animation: bounce-x 1.5s infinite;
+}
+
+@keyframes bounce-x {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(5px); }
 }

@@ -1,289 +1,508 @@
 'use client'
 
-import { useState } from 'react'
-import { Header } from '@/components/layout/Header'
-import { Modal } from '@/components/ui/Modal'
+import { useState, useRef } from 'react'
 import { useOpsMapStore } from '@/store'
-import { Building2, Database, Trash2, Download, Upload } from 'lucide-react'
+import { 
+  Building2, 
+  Download, 
+  Upload, 
+  Trash2, 
+  Database,
+  FileJson,
+  AlertTriangle,
+  Check,
+  Sparkles
+} from 'lucide-react'
+import { Modal } from '@/components/ui/Modal'
 
 export default function SettingsPage() {
-  const company = useOpsMapStore((state) => state.company)
-  const setCompany = useOpsMapStore((state) => state.setCompany)
-  const clearAllData = useOpsMapStore((state) => state.clearAllData)
-  const loadDemoData = useOpsMapStore((state) => state.loadDemoData)
-  
-  const functions = useOpsMapStore((state) => state.functions)
-  const workflows = useOpsMapStore((state) => state.workflows)
-  const coreActivities = useOpsMapStore((state) => state.coreActivities)
+  const {
+    company,
+    setCompany,
+    clearAllData,
+    loadDemoData,
+    loadTemplate,
+    functions,
+    subFunctions,
+    coreActivities,
+    workflows,
+    phases,
+    steps,
+    people,
+    roles,
+    software,
+    checklistItems,
+  } = useOpsMapStore()
 
-  const [companyName, setCompanyName] = useState(company?.name || '')
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [showDemoConfirm, setShowDemoConfirm] = useState(false)
+  const [showTemplateModal, setShowTemplateModal] = useState(false)
+  const [importSuccess, setImportSuccess] = useState(false)
+  const [companyName, setCompanyName] = useState(company?.name || '')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleSave = () => {
+  const handleExport = () => {
+    const data = {
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      company,
+      functions,
+      subFunctions,
+      coreActivities,
+      workflows,
+      phases,
+      steps,
+      people,
+      roles,
+      software,
+      checklistItems,
+      // Include link tables
+      subFunctionActivities: useOpsMapStore.getState().subFunctionActivities,
+      stepActivities: useOpsMapStore.getState().stepActivities,
+    }
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `opsmap-${company?.name?.toLowerCase().replace(/\s+/g, '-') || 'export'}-${new Date().toISOString().split('T')[0]}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target?.result as string)
+        
+        // Validate it has the expected structure
+        if (!data.company || !data.version) {
+          alert('Invalid OpsMap export file')
+          return
+        }
+
+        // Clear and reload
+        clearAllData()
+        
+        // Set company
+        if (data.company) {
+          setCompany(data.company)
+        }
+
+        // Reload all data (this is simplified - in production would use proper store methods)
+        const store = useOpsMapStore.getState()
+        
+        // Functions
+        data.functions?.forEach((f: any) => {
+          const newFunc = store.addFunction(f.name, f.description)
+          store.updateFunction(newFunc.id, { color: f.color, orderIndex: f.orderIndex })
+        })
+        
+        // SubFunctions
+        const funcMap: Record<string, string> = {}
+        store.functions.forEach((f, i) => {
+          if (data.functions[i]) {
+            funcMap[data.functions[i].id] = f.id
+          }
+        })
+        
+        data.subFunctions?.forEach((sf: any) => {
+          const newFuncId = funcMap[sf.functionId]
+          if (newFuncId) {
+            store.addSubFunction(newFuncId, sf.name, sf.description)
+          }
+        })
+
+        // Roles
+        data.roles?.forEach((r: any) => {
+          store.addRole(r.name, r.description)
+        })
+
+        // People
+        data.people?.forEach((p: any) => {
+          store.addPerson(p.name, p.email)
+        })
+
+        // Software
+        data.software?.forEach((s: any) => {
+          store.addSoftware(s.name, s.url)
+        })
+
+        // Activities
+        data.coreActivities?.forEach((a: any) => {
+          store.addCoreActivity(a.name, a.description)
+        })
+
+        // Workflows
+        data.workflows?.forEach((w: any) => {
+          store.addWorkflow(w.name, w.description)
+        })
+
+        setImportSuccess(true)
+        setTimeout(() => setImportSuccess(false), 3000)
+        setCompanyName(data.company?.name || '')
+      } catch (err) {
+        alert('Error reading file. Make sure it\'s a valid OpsMap export.')
+      }
+    }
+    reader.readAsText(file)
+    
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  const handleSaveCompanyName = () => {
     if (company && companyName.trim()) {
       setCompany({ ...company, name: companyName.trim() })
     }
   }
 
-  const handleExportData = () => {
-    const state = useOpsMapStore.getState()
-    const data = {
-      company: state.company,
-      functions: state.functions,
-      subFunctions: state.subFunctions,
-      coreActivities: state.coreActivities,
-      subFunctionActivities: state.subFunctionActivities,
-      workflows: state.workflows,
-      phases: state.phases,
-      steps: state.steps,
-      stepActivities: state.stepActivities,
-      people: state.people,
-      roles: state.roles,
-      software: state.software,
-      checklistItems: state.checklistItems,
-      exportedAt: new Date().toISOString(),
-    }
-    
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `opsmap-backup-${new Date().toISOString().split('T')[0]}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const handleImportData = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      try {
-        const data = JSON.parse(e.target?.result as string)
-        // Validate it has expected structure
-        if (data.company && data.functions) {
-          useOpsMapStore.setState({
-            company: data.company,
-            functions: data.functions || [],
-            subFunctions: data.subFunctions || [],
-            coreActivities: data.coreActivities || [],
-            subFunctionActivities: data.subFunctionActivities || [],
-            workflows: data.workflows || [],
-            phases: data.phases || [],
-            steps: data.steps || [],
-            stepActivities: data.stepActivities || [],
-            people: data.people || [],
-            roles: data.roles || [],
-            software: data.software || [],
-            checklistItems: data.checklistItems || [],
-          })
-          alert('Data imported successfully!')
-        } else {
-          alert('Invalid backup file format')
-        }
-      } catch {
-        alert('Failed to parse backup file')
-      }
-    }
-    reader.readAsText(file)
-    event.target.value = '' // Reset input
-  }
-
-  const hasData = functions.length > 0 || workflows.length > 0 || coreActivities.length > 0
+  const templates = [
+    {
+      id: 'residential-remodeler',
+      name: 'Residential Remodeler',
+      description: 'Kitchen/bath remodel companies',
+      icon: '🏠'
+    },
+    {
+      id: 'general-contractor',
+      name: 'General Contractor',
+      description: 'Commercial/new construction',
+      icon: '🏗️'
+    },
+    {
+      id: 'specialty-contractor',
+      name: 'Specialty Contractor',
+      description: 'Electrical, plumbing, HVAC trades',
+      icon: '⚡'
+    },
+  ]
 
   return (
-    <div>
-      <Header title="Settings" description="Configure your OpsMap" />
-      <div className="p-6 space-y-6">
-        {/* Company Settings */}
-        <div className="max-w-2xl rounded-xl border border-slate-200 bg-white p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100">
-              <Building2 className="h-5 w-5 text-slate-600" />
+    <div className="min-h-full p-8" style={{ background: 'var(--cream)' }}>
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+          Settings
+        </h1>
+        <p style={{ color: 'var(--text-secondary)' }}>
+          Manage your company details and data
+        </p>
+      </div>
+
+      <div className="max-w-2xl space-y-6">
+        {/* Company Name */}
+        <div 
+          className="rounded-xl p-6"
+          style={{ background: 'var(--white)', border: '1px solid var(--stone)' }}
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <div 
+              className="p-2 rounded-lg"
+              style={{ background: 'var(--mint)' }}
+            >
+              <Building2 className="h-5 w-5" style={{ color: 'var(--gk-green)' }} />
             </div>
-            <div>
-              <h3 className="font-semibold text-slate-900">Company Settings</h3>
-              <p className="text-sm text-slate-500">Basic information about your company</p>
-            </div>
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+              Company Name
+            </h2>
           </div>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Company Name
-              </label>
-              <input
-                type="text"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-            <div className="flex justify-end">
-              <button
-                onClick={handleSave}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
-              >
-                Save Changes
-              </button>
-            </div>
+          <div className="flex gap-3">
+            <input
+              type="text"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              className="flex-1 px-4 py-2 rounded-lg border"
+              style={{ 
+                borderColor: 'var(--stone)', 
+                background: 'var(--cream-light)',
+                color: 'var(--text-primary)'
+              }}
+            />
+            <button
+              onClick={handleSaveCompanyName}
+              className="px-4 py-2 rounded-lg font-medium text-white"
+              style={{ background: 'var(--gk-green)' }}
+            >
+              Save
+            </button>
           </div>
+        </div>
+
+        {/* Industry Templates */}
+        <div 
+          className="rounded-xl p-6"
+          style={{ background: 'var(--white)', border: '1px solid var(--stone)' }}
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <div 
+              className="p-2 rounded-lg"
+              style={{ background: 'var(--sand)' }}
+            >
+              <Sparkles className="h-5 w-5" style={{ color: '#b8956e' }} />
+            </div>
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+              Industry Templates
+            </h2>
+          </div>
+          <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
+            Start with a pre-built template for your industry. This will replace your current data.
+          </p>
+          <button
+            onClick={() => setShowTemplateModal(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium"
+            style={{ background: 'var(--mint)', color: 'var(--gk-green-dark)' }}
+          >
+            <Sparkles className="h-4 w-4" />
+            Choose Template
+          </button>
         </div>
 
         {/* Data Management */}
-        <div className="max-w-2xl rounded-xl border border-slate-200 bg-white p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100">
-              <Database className="h-5 w-5 text-slate-600" />
+        <div 
+          className="rounded-xl p-6"
+          style={{ background: 'var(--white)', border: '1px solid var(--stone)' }}
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <div 
+              className="p-2 rounded-lg"
+              style={{ background: 'var(--dusty-blue)' }}
+            >
+              <Database className="h-5 w-5" style={{ color: '#3d4f5f' }} />
             </div>
-            <div>
-              <h3 className="font-semibold text-slate-900">Data Management</h3>
-              <p className="text-sm text-slate-500">Export, import, or reset your data</p>
-            </div>
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+              Data Management
+            </h2>
           </div>
-
-          <div className="space-y-4">
+          
+          <div className="space-y-3">
             {/* Export */}
-            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
-              <div>
-                <h4 className="font-medium text-slate-900">Export Data</h4>
-                <p className="text-sm text-slate-500">Download a backup of all your data</p>
+            <button
+              onClick={handleExport}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors"
+              style={{ background: 'var(--cream-light)' }}
+            >
+              <Download className="h-5 w-5" style={{ color: 'var(--gk-green)' }} />
+              <div className="flex-1 text-left">
+                <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  Export Data
+                </div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Download your OpsMap data as JSON
+                </div>
               </div>
-              <button
-                onClick={handleExportData}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50"
-              >
-                <Download className="h-4 w-4" />
-                Export JSON
-              </button>
-            </div>
+              <FileJson className="h-4 w-4" style={{ color: 'var(--text-muted)' }} />
+            </button>
 
             {/* Import */}
-            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
-              <div>
-                <h4 className="font-medium text-slate-900">Import Data</h4>
-                <p className="text-sm text-slate-500">Restore from a backup file</p>
+            <div className="relative">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                onChange={handleImport}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
+              <div 
+                className="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors"
+                style={{ background: 'var(--cream-light)' }}
+              >
+                <Upload className="h-5 w-5" style={{ color: 'var(--gk-green)' }} />
+                <div className="flex-1 text-left">
+                  <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                    Import Data
+                  </div>
+                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    Restore from a previous export
+                  </div>
+                </div>
+                {importSuccess && (
+                  <Check className="h-5 w-5" style={{ color: 'var(--gk-green)' }} />
+                )}
               </div>
-              <label className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 cursor-pointer">
-                <Upload className="h-4 w-4" />
-                Import JSON
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={handleImportData}
-                  className="hidden"
-                />
-              </label>
             </div>
 
-            {/* Demo Data */}
-            <div className="flex items-center justify-between p-4 bg-emerald-50 rounded-lg border border-emerald-200">
-              <div>
-                <h4 className="font-medium text-slate-900">Load Demo Data</h4>
-                <p className="text-sm text-slate-500">Load sample construction company data</p>
+            {/* Load Demo */}
+            <button
+              onClick={() => setShowDemoConfirm(true)}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors"
+              style={{ background: 'var(--cream-light)' }}
+            >
+              <Database className="h-5 w-5" style={{ color: '#b8956e' }} />
+              <div className="flex-1 text-left">
+                <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  Load Demo Data
+                </div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Load sample construction company data
+                </div>
               </div>
-              <button
-                onClick={() => setShowDemoConfirm(true)}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700"
-              >
-                <Database className="h-4 w-4" />
-                Load Demo
-              </button>
-            </div>
-
-            {/* Clear */}
-            <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-200">
-              <div>
-                <h4 className="font-medium text-slate-900">Clear All Data</h4>
-                <p className="text-sm text-slate-500">Delete everything and start fresh</p>
-              </div>
-              <button
-                onClick={() => setShowClearConfirm(true)}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700"
-              >
-                <Trash2 className="h-4 w-4" />
-                Clear All
-              </button>
-            </div>
+            </button>
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="max-w-2xl rounded-xl border border-slate-200 bg-white p-6">
-          <h3 className="font-semibold text-slate-900 mb-4">Current Data</h3>
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div className="p-3 bg-slate-50 rounded-lg">
-              <p className="text-2xl font-bold text-slate-900">{functions.length}</p>
-              <p className="text-xs text-slate-500">Functions</p>
+        {/* Danger Zone */}
+        <div 
+          className="rounded-xl p-6"
+          style={{ background: 'var(--white)', border: '1px solid #c4785a' }}
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <div 
+              className="p-2 rounded-lg"
+              style={{ background: '#fce8e0' }}
+            >
+              <AlertTriangle className="h-5 w-5" style={{ color: '#c4785a' }} />
             </div>
-            <div className="p-3 bg-slate-50 rounded-lg">
-              <p className="text-2xl font-bold text-slate-900">{workflows.length}</p>
-              <p className="text-xs text-slate-500">Workflows</p>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-lg">
-              <p className="text-2xl font-bold text-slate-900">{coreActivities.length}</p>
-              <p className="text-xs text-slate-500">Activities</p>
-            </div>
+            <h2 className="text-lg font-semibold" style={{ color: '#c4785a' }}>
+              Danger Zone
+            </h2>
           </div>
+          
+          <button
+            onClick={() => setShowClearConfirm(true)}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors"
+            style={{ background: '#fce8e0' }}
+          >
+            <Trash2 className="h-5 w-5" style={{ color: '#c4785a' }} />
+            <div className="flex-1 text-left">
+              <div className="font-medium" style={{ color: '#c4785a' }}>
+                Clear All Data
+              </div>
+              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                Delete everything and start fresh
+              </div>
+            </div>
+          </button>
         </div>
       </div>
 
       {/* Clear Confirm Modal */}
       <Modal
-        open={showClearConfirm}
+        isOpen={showClearConfirm}
         onClose={() => setShowClearConfirm(false)}
         title="Clear All Data?"
-        description="This will permanently delete all your functions, workflows, activities, and other data. This cannot be undone."
       >
-        <div className="flex justify-end gap-3 mt-4">
-          <button
-            onClick={() => setShowClearConfirm(false)}
-            className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg"
+        <div className="space-y-4">
+          <div 
+            className="flex items-center gap-3 p-4 rounded-lg"
+            style={{ background: '#fce8e0' }}
           >
-            Cancel
-          </button>
-          <button
-            onClick={() => {
-              clearAllData()
-              setShowClearConfirm(false)
-              setCompanyName('My Company')
-            }}
-            className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg"
-          >
-            Yes, Clear Everything
-          </button>
+            <AlertTriangle className="h-6 w-6" style={{ color: '#c4785a' }} />
+            <p style={{ color: 'var(--text-primary)' }}>
+              This will permanently delete all your functions, workflows, activities, people, and roles. This action cannot be undone.
+            </p>
+          </div>
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={() => setShowClearConfirm(false)}
+              className="px-4 py-2 rounded-lg font-medium"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                clearAllData()
+                setCompanyName('My Company')
+                setShowClearConfirm(false)
+              }}
+              className="px-4 py-2 rounded-lg font-medium text-white"
+              style={{ background: '#c4785a' }}
+            >
+              Delete Everything
+            </button>
+          </div>
         </div>
       </Modal>
 
       {/* Demo Confirm Modal */}
       <Modal
-        open={showDemoConfirm}
+        isOpen={showDemoConfirm}
         onClose={() => setShowDemoConfirm(false)}
         title="Load Demo Data?"
-        description={hasData 
-          ? "This will replace your current data with sample construction company data. Your existing data will be lost."
-          : "This will load sample construction company data to help you explore the app."
-        }
       >
-        <div className="flex justify-end gap-3 mt-4">
-          <button
-            onClick={() => setShowDemoConfirm(false)}
-            className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => {
-              loadDemoData()
-              setShowDemoConfirm(false)
-              setCompanyName('Summit Construction Co.')
-            }}
-            className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg"
-          >
-            Load Demo Data
-          </button>
+        <div className="space-y-4">
+          <p style={{ color: 'var(--text-secondary)' }}>
+            This will replace your current data with sample construction company data (Summit Construction Co.). Your current data will be lost.
+          </p>
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={() => setShowDemoConfirm(false)}
+              className="px-4 py-2 rounded-lg font-medium"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                loadDemoData()
+                setCompanyName('Summit Construction Co.')
+                setShowDemoConfirm(false)
+              }}
+              className="px-4 py-2 rounded-lg font-medium text-white"
+              style={{ background: 'var(--gk-green)' }}
+            >
+              Load Demo Data
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Template Selection Modal */}
+      <Modal
+        isOpen={showTemplateModal}
+        onClose={() => setShowTemplateModal(false)}
+        title="Choose Industry Template"
+        maxWidth="32rem"
+      >
+        <div className="space-y-4">
+          <p style={{ color: 'var(--text-secondary)' }}>
+            Select a template that matches your business. This will replace your current data with a pre-built structure.
+          </p>
+          <div className="space-y-3">
+            {templates.map((template) => (
+              <button
+                key={template.id}
+                onClick={() => {
+                  loadTemplate(template.id)
+                  setCompanyName(template.name + ' Company')
+                  setShowTemplateModal(false)
+                }}
+                className="w-full flex items-center gap-4 p-4 rounded-lg text-left transition-colors"
+                style={{ 
+                  background: 'var(--cream-light)',
+                  border: '1px solid var(--stone)'
+                }}
+              >
+                <span className="text-3xl">{template.icon}</span>
+                <div className="flex-1">
+                  <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                    {template.name}
+                  </div>
+                  <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                    {template.description}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+          <div className="flex justify-end">
+            <button
+              onClick={() => setShowTemplateModal(false)}
+              className="px-4 py-2 rounded-lg font-medium"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       </Modal>
     </div>

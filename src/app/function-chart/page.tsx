@@ -1,411 +1,434 @@
 'use client'
 
 import { useState } from 'react'
-import { Header } from '@/components/layout/Header'
-import { Modal } from '@/components/ui/Modal'
-import { ExportButton } from '@/components/ExportButton'
 import { useOpsMapStore } from '@/store'
-import { ChevronDown, ChevronRight, Plus, MoreHorizontal, Trash2, Edit2, AlertCircle, LayoutGrid, Printer } from 'lucide-react'
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import { cn } from '@/lib/utils'
-import Link from 'next/link'
+import { Plus, ChevronDown, ChevronRight, MoreHorizontal, Edit, Trash2, Link as LinkIcon } from 'lucide-react'
+import { Modal } from '@/components/ui/Modal'
+import type { CoreActivity } from '@/types'
+
+// Function colors following GrowthKits palette
+const FUNCTION_COLORS = [
+  '#7b9d76', // gk-green
+  '#d4a5a5', // dusty-rose
+  '#c4785a', // terracotta
+  '#3d4f5f', // navy
+  '#5a7a55', // gk-green-dark
+  '#8b6b7b', // plum
+  '#b8956e', // gold
+  '#6b7280', // slate
+]
 
 export default function FunctionChartPage() {
-  const functions = useOpsMapStore((state) => state.functions)
-  const subFunctions = useOpsMapStore((state) => state.subFunctions)
-  const coreActivities = useOpsMapStore((state) => state.coreActivities)
-  const addFunction = useOpsMapStore((state) => state.addFunction)
-  const updateFunction = useOpsMapStore((state) => state.updateFunction)
-  const deleteFunction = useOpsMapStore((state) => state.deleteFunction)
-  const addSubFunction = useOpsMapStore((state) => state.addSubFunction)
-  const updateSubFunction = useOpsMapStore((state) => state.updateSubFunction)
-  const deleteSubFunction = useOpsMapStore((state) => state.deleteSubFunction)
-  const addCoreActivity = useOpsMapStore((state) => state.addCoreActivity)
-  const linkActivityToSubFunction = useOpsMapStore((state) => state.linkActivityToSubFunction)
-  const getActivitiesForSubFunction = useOpsMapStore((state) => state.getActivitiesForSubFunction)
-  const unlinkActivityFromSubFunction = useOpsMapStore((state) => state.unlinkActivityFromSubFunction)
+  const {
+    functions,
+    subFunctions,
+    addFunction,
+    updateFunction,
+    deleteFunction,
+    addSubFunction,
+    updateSubFunction,
+    deleteSubFunction,
+    getActivitiesForSubFunction,
+    coreActivities,
+    linkActivityToSubFunction,
+    unlinkActivityFromSubFunction,
+  } = useOpsMapStore()
 
-  const [expandedFunctions, setExpandedFunctions] = useState<Set<string>>(new Set())
   const [expandedSubFunctions, setExpandedSubFunctions] = useState<Set<string>>(new Set())
-  
-  // Modals
   const [showAddFunction, setShowAddFunction] = useState(false)
   const [showAddSubFunction, setShowAddSubFunction] = useState<string | null>(null)
-  const [showAddActivity, setShowAddActivity] = useState<string | null>(null)
-  const [editingFunction, setEditingFunction] = useState<string | null>(null)
-  const [editingSubFunction, setEditingSubFunction] = useState<string | null>(null)
-  
-  // Form state
   const [newName, setNewName] = useState('')
   const [newDescription, setNewDescription] = useState('')
-
-  const toggleFunction = (id: string) => {
-    const newSet = new Set(expandedFunctions)
-    if (newSet.has(id)) {
-      newSet.delete(id)
-    } else {
-      newSet.add(id)
-    }
-    setExpandedFunctions(newSet)
-  }
-
-  const toggleSubFunction = (id: string) => {
-    const newSet = new Set(expandedSubFunctions)
-    if (newSet.has(id)) {
-      newSet.delete(id)
-    } else {
-      newSet.add(id)
-    }
-    setExpandedSubFunctions(newSet)
-  }
-
-  const handleAddFunction = () => {
-    if (newName.trim()) {
-      const func = addFunction(newName.trim(), newDescription.trim() || undefined)
-      setExpandedFunctions(new Set([...expandedFunctions, func.id]))
-      setNewName('')
-      setNewDescription('')
-      setShowAddFunction(false)
-    }
-  }
-
-  const handleAddSubFunction = (functionId: string) => {
-    if (newName.trim()) {
-      const sub = addSubFunction(functionId, newName.trim(), newDescription.trim() || undefined)
-      setExpandedSubFunctions(new Set([...expandedSubFunctions, sub.id]))
-      setNewName('')
-      setNewDescription('')
-      setShowAddSubFunction(null)
-    }
-  }
-
-  const handleAddActivity = (subFunctionId: string) => {
-    if (newName.trim()) {
-      const activity = addCoreActivity(newName.trim(), newDescription.trim() || undefined)
-      linkActivityToSubFunction(subFunctionId, activity.id)
-      setNewName('')
-      setNewDescription('')
-      setShowAddActivity(null)
-    }
-  }
-
-  const handleUpdateFunction = (id: string) => {
-    if (newName.trim()) {
-      updateFunction(id, { name: newName.trim(), description: newDescription.trim() || undefined })
-      setNewName('')
-      setNewDescription('')
-      setEditingFunction(null)
-    }
-  }
-
-  const handleUpdateSubFunction = (id: string) => {
-    if (newName.trim()) {
-      updateSubFunction(id, { name: newName.trim(), description: newDescription.trim() || undefined })
-      setNewName('')
-      setNewDescription('')
-      setEditingSubFunction(null)
-    }
-  }
+  const [editingFunction, setEditingFunction] = useState<string | null>(null)
+  const [editingSubFunction, setEditingSubFunction] = useState<string | null>(null)
+  const [showActivityDetail, setShowActivityDetail] = useState<CoreActivity | null>(null)
+  const [showLinkActivity, setShowLinkActivity] = useState<string | null>(null)
 
   const sortedFunctions = [...functions].sort((a, b) => a.orderIndex - b.orderIndex)
 
-  return (
-    <div>
-      <Header
-        title="Function Chart"
-        description="What happens in your business — structure and organization"
-        extraActions={
-          <div className="flex items-center gap-2">
-            <Link
-              href="/function-chart/visual"
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50"
-            >
-              <LayoutGrid className="h-4 w-4" />
-              Visual
-            </Link>
-            <Link
-              href="/function-chart/print"
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50"
-            >
-              <Printer className="h-4 w-4" />
-              Print
-            </Link>
-            <ExportButton targetId="function-chart-content" filename="function-chart" title="Function Chart" />
-          </div>
-        }
-        action={{
-          label: 'Add Function',
-          onClick: () => setShowAddFunction(true),
-        }}
-      />
+  const toggleSubFunction = (id: string) => {
+    const newExpanded = new Set(expandedSubFunctions)
+    if (newExpanded.has(id)) {
+      newExpanded.delete(id)
+    } else {
+      newExpanded.add(id)
+    }
+    setExpandedSubFunctions(newExpanded)
+  }
 
-      <div className="p-6" id="function-chart-content">
-        {sortedFunctions.length === 0 ? (
-          <div className="rounded-xl border-2 border-dashed border-slate-300 bg-white p-12 text-center">
-            <div className="mx-auto h-12 w-12 rounded-full bg-blue-100 p-3">
-              <Plus className="h-6 w-6 text-blue-600" />
-            </div>
-            <h3 className="mt-4 text-lg font-semibold text-slate-900">No functions yet</h3>
-            <p className="mt-2 text-sm text-slate-500">
-              Start by adding your first business function like Marketing, Sales, or Production.
+  const handleAddFunction = () => {
+    if (!newName.trim()) return
+    const func = addFunction(newName.trim(), newDescription.trim() || undefined)
+    updateFunction(func.id, { color: FUNCTION_COLORS[functions.length % FUNCTION_COLORS.length] })
+    setNewName('')
+    setNewDescription('')
+    setShowAddFunction(false)
+  }
+
+  const handleAddSubFunction = (functionId: string) => {
+    if (!newName.trim()) return
+    addSubFunction(functionId, newName.trim(), newDescription.trim() || undefined)
+    setNewName('')
+    setNewDescription('')
+    setShowAddSubFunction(null)
+  }
+
+  const handleUpdateFunction = (id: string) => {
+    if (!newName.trim()) return
+    updateFunction(id, { name: newName.trim(), description: newDescription.trim() || undefined })
+    setNewName('')
+    setNewDescription('')
+    setEditingFunction(null)
+  }
+
+  const handleUpdateSubFunction = (id: string) => {
+    if (!newName.trim()) return
+    updateSubFunction(id, { name: newName.trim(), description: newDescription.trim() || undefined })
+    setNewName('')
+    setNewDescription('')
+    setEditingSubFunction(null)
+  }
+
+  const getSubFunctionsForFunction = (functionId: string) => {
+    return subFunctions
+      .filter((sf) => sf.functionId === functionId)
+      .sort((a, b) => a.orderIndex - b.orderIndex)
+  }
+
+  return (
+    <div className="flex flex-col h-full" style={{ background: 'var(--cream)' }}>
+      {/* Header */}
+      <div className="flex-shrink-0 px-8 py-6" style={{ background: 'var(--gk-charcoal)' }}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-white">Function Chart</h1>
+            <p className="text-sm mt-1" style={{ color: 'var(--gk-green-light)' }}>
+              Your organizational structure • Scroll horizontally to view all functions
             </p>
-            <button
-              onClick={() => setShowAddFunction(true)}
-              className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              Add Your First Function
-            </button>
+          </div>
+          <button
+            onClick={() => setShowAddFunction(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-white transition-colors"
+            style={{ background: 'var(--gk-green)' }}
+          >
+            <Plus className="h-4 w-4" />
+            Add Function
+          </button>
+        </div>
+        
+        {/* Scroll hint */}
+        <div className="scroll-hint mt-4">
+          <span>Scroll horizontally to view all functions</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </div>
+      </div>
+
+      {/* Horizontal Columns Container */}
+      <div className="flex-1 overflow-x-auto overflow-y-hidden p-6">
+        {sortedFunctions.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center max-w-md">
+              <div 
+                className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+                style={{ background: 'var(--mint)' }}
+              >
+                <Plus className="h-8 w-8" style={{ color: 'var(--gk-green)' }} />
+              </div>
+              <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                Start Building Your Function Chart
+              </h2>
+              <p className="mb-6" style={{ color: 'var(--text-secondary)' }}>
+                Functions represent the major areas of your business. Add functions like Sales, Marketing, Production, Finance, etc.
+              </p>
+              <button
+                onClick={() => setShowAddFunction(true)}
+                className="px-6 py-3 rounded-lg font-medium text-white"
+                style={{ background: 'var(--gk-green)' }}
+              >
+                Add Your First Function
+              </button>
+            </div>
           </div>
         ) : (
-          <div className="space-y-4">
-            {sortedFunctions.map((func) => {
-              const funcSubFunctions = subFunctions
-                .filter((sf) => sf.functionId === func.id)
-                .sort((a, b) => a.orderIndex - b.orderIndex)
-              const isExpanded = expandedFunctions.has(func.id)
-              const hasGap = funcSubFunctions.length === 0
-
+          <div className="flex gap-5" style={{ minWidth: 'max-content', height: '100%' }}>
+            {sortedFunctions.map((func, index) => {
+              const funcSubFunctions = getSubFunctionsForFunction(func.id)
+              const color = func.color || FUNCTION_COLORS[index % FUNCTION_COLORS.length]
+              
               return (
-                <div
-                  key={func.id}
-                  className="rounded-xl border border-slate-200 bg-white overflow-hidden"
+                <div 
+                  key={func.id} 
+                  className="flex flex-col"
+                  style={{ width: '300px', height: '100%', flexShrink: 0 }}
                 >
                   {/* Function Header */}
-                  <div
-                    className="flex items-center gap-3 p-4 cursor-pointer hover:bg-slate-50"
-                    onClick={() => toggleFunction(func.id)}
+                  <div 
+                    className="rounded-t-2xl px-5 py-4 text-white"
+                    style={{ background: color }}
                   >
-                    <button className="p-1 hover:bg-slate-200 rounded">
-                      {isExpanded ? (
-                        <ChevronDown className="h-5 w-5 text-slate-500" />
-                      ) : (
-                        <ChevronRight className="h-5 w-5 text-slate-500" />
-                      )}
-                    </button>
-                    <div
-                      className="h-4 w-4 rounded"
-                      style={{ backgroundColor: func.color }}
-                    />
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-slate-900">{func.name}</h3>
-                      {func.description && (
-                        <p className="text-sm text-slate-500">{func.description}</p>
-                      )}
-                    </div>
-                    {hasGap && (
-                      <div className="flex items-center gap-1 text-amber-500" title="No sub-functions">
-                        <AlertCircle className="h-4 w-4" />
-                      </div>
-                    )}
-                    <span className="text-sm text-slate-400">
-                      {funcSubFunctions.length} sub-functions
-                    </span>
-                    <DropdownMenu.Root>
-                      <DropdownMenu.Trigger asChild>
+                    <div className="flex items-center justify-between mb-1">
+                      <h3 className="text-lg font-semibold">{func.name}</h3>
+                      <div className="flex items-center gap-1">
                         <button
-                          onClick={(e) => e.stopPropagation()}
-                          className="p-2 hover:bg-slate-200 rounded"
+                          onClick={() => {
+                            setEditingFunction(func.id)
+                            setNewName(func.name)
+                            setNewDescription(func.description || '')
+                          }}
+                          className="p-1.5 rounded hover:bg-white/20 transition-colors"
                         >
-                          <MoreHorizontal className="h-4 w-4 text-slate-500" />
+                          <Edit className="h-4 w-4" />
                         </button>
-                      </DropdownMenu.Trigger>
-                      <DropdownMenu.Portal>
-                        <DropdownMenu.Content className="min-w-[160px] bg-white rounded-lg shadow-lg border border-slate-200 p-1 z-50">
-                          <DropdownMenu.Item
-                            className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded cursor-pointer outline-none"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setNewName(func.name)
-                              setNewDescription(func.description || '')
-                              setEditingFunction(func.id)
-                            }}
-                          >
-                            <Edit2 className="h-4 w-4" /> Edit
-                          </DropdownMenu.Item>
-                          <DropdownMenu.Item
-                            className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded cursor-pointer outline-none"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              deleteFunction(func.id)
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" /> Delete
-                          </DropdownMenu.Item>
-                        </DropdownMenu.Content>
-                      </DropdownMenu.Portal>
-                    </DropdownMenu.Root>
+                        <button
+                          onClick={() => deleteFunction(func.id)}
+                          className="p-1.5 rounded hover:bg-white/20 transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-sm opacity-85">{funcSubFunctions.length} Sub-Functions</p>
                   </div>
 
-                  {/* Sub-Functions */}
-                  {isExpanded && (
-                    <div className="border-t border-slate-100 bg-slate-50">
-                      {funcSubFunctions.map((sub) => {
-                        const activities = getActivitiesForSubFunction(sub.id)
-                        const isSubExpanded = expandedSubFunctions.has(sub.id)
-                        const subHasGap = activities.length === 0
-
-                        return (
-                          <div key={sub.id} className="border-b border-slate-100 last:border-b-0">
-                            <div
-                              className="flex items-center gap-3 p-3 pl-12 cursor-pointer hover:bg-slate-100"
-                              onClick={() => toggleSubFunction(sub.id)}
+                  {/* Sub-Functions List */}
+                  <div 
+                    className="flex-1 rounded-b-2xl p-3 overflow-y-auto"
+                    style={{ 
+                      background: 'var(--white)', 
+                      border: '1px solid var(--stone)',
+                      borderTop: 'none',
+                      minHeight: 0 
+                    }}
+                  >
+                    {funcSubFunctions.map((subFunc, sfIndex) => {
+                      const isExpanded = expandedSubFunctions.has(subFunc.id)
+                      const activities = getActivitiesForSubFunction(subFunc.id)
+                      
+                      return (
+                        <div 
+                          key={subFunc.id}
+                          className="mb-2 rounded-xl overflow-hidden"
+                          style={{ 
+                            border: '1px solid var(--stone)',
+                            background: isExpanded ? 'var(--cream-light)' : 'var(--cream)'
+                          }}
+                        >
+                          {/* Sub-Function Header */}
+                          <div 
+                            className="px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-opacity-80 transition-colors"
+                            style={{ background: 'var(--cream)' }}
+                            onClick={() => toggleSubFunction(subFunc.id)}
+                          >
+                            <span 
+                              className="text-xs font-semibold px-2 py-1 rounded text-white"
+                              style={{ background: color }}
                             >
-                              <button className="p-1 hover:bg-slate-200 rounded">
-                                {isSubExpanded ? (
-                                  <ChevronDown className="h-4 w-4 text-slate-400" />
+                              {sfIndex + 1}
+                            </span>
+                            <span 
+                              className="flex-1 text-sm font-medium"
+                              style={{ color: 'var(--text-primary)' }}
+                            >
+                              {subFunc.name}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <span 
+                                className="text-xs px-2 py-0.5 rounded"
+                                style={{ 
+                                  background: activities.length > 0 ? 'var(--mint)' : 'var(--sand)',
+                                  color: activities.length > 0 ? 'var(--gk-green-dark)' : 'var(--text-muted)'
+                                }}
+                              >
+                                {activities.length}
+                              </span>
+                              {isExpanded ? (
+                                <ChevronDown className="h-4 w-4" style={{ color: 'var(--text-muted)' }} />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" style={{ color: 'var(--text-muted)' }} />
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Expanded Content - Activities */}
+                          {isExpanded && (
+                            <div className="px-4 pb-4 pt-2" style={{ background: 'var(--white)' }}>
+                              {subFunc.description && (
+                                <p 
+                                  className="text-sm mb-3 pb-3"
+                                  style={{ 
+                                    color: 'var(--text-secondary)',
+                                    borderBottom: '1px solid var(--stone)'
+                                  }}
+                                >
+                                  {subFunc.description}
+                                </p>
+                              )}
+                              
+                              {/* Activities */}
+                              <div className="space-y-2">
+                                {activities.length === 0 ? (
+                                  <p className="text-sm italic" style={{ color: 'var(--text-muted)' }}>
+                                    No activities linked yet
+                                  </p>
                                 ) : (
-                                  <ChevronRight className="h-4 w-4 text-slate-400" />
-                                )}
-                              </button>
-                              <div className="flex-1">
-                                <h4 className="font-medium text-slate-800">{sub.name}</h4>
-                                {sub.description && (
-                                  <p className="text-xs text-slate-500">{sub.description}</p>
+                                  activities.map((activity) => (
+                                    <div
+                                      key={activity.id}
+                                      className="activity-item cursor-pointer hover:border-l-4"
+                                      style={{ borderLeftColor: color }}
+                                      onClick={() => setShowActivityDetail(activity)}
+                                    >
+                                      {activity.name}
+                                    </div>
+                                  ))
                                 )}
                               </div>
-                              {subHasGap && (
-                                <div className="flex items-center gap-1 text-amber-500" title="No activities">
-                                  <AlertCircle className="h-4 w-4" />
-                                </div>
-                              )}
-                              <span className="text-xs text-slate-400">
-                                {activities.length} activities
-                              </span>
-                              <DropdownMenu.Root>
-                                <DropdownMenu.Trigger asChild>
-                                  <button
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="p-1 hover:bg-slate-200 rounded"
-                                  >
-                                    <MoreHorizontal className="h-4 w-4 text-slate-400" />
-                                  </button>
-                                </DropdownMenu.Trigger>
-                                <DropdownMenu.Portal>
-                                  <DropdownMenu.Content className="min-w-[160px] bg-white rounded-lg shadow-lg border border-slate-200 p-1 z-50">
-                                    <DropdownMenu.Item
-                                      className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded cursor-pointer outline-none"
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        setNewName(sub.name)
-                                        setNewDescription(sub.description || '')
-                                        setEditingSubFunction(sub.id)
-                                      }}
-                                    >
-                                      <Edit2 className="h-4 w-4" /> Edit
-                                    </DropdownMenu.Item>
-                                    <DropdownMenu.Item
-                                      className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded cursor-pointer outline-none"
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        deleteSubFunction(sub.id)
-                                      }}
-                                    >
-                                      <Trash2 className="h-4 w-4" /> Delete
-                                    </DropdownMenu.Item>
-                                  </DropdownMenu.Content>
-                                </DropdownMenu.Portal>
-                              </DropdownMenu.Root>
-                            </div>
 
-                            {/* Activities */}
-                            {isSubExpanded && (
-                              <div className="bg-white border-t border-slate-100">
-                                {activities.map((activity) => (
-                                  <div
-                                    key={activity.id}
-                                    className="flex items-center gap-3 p-2 pl-20 text-sm text-slate-600 hover:bg-slate-50"
-                                  >
-                                    <div className="h-2 w-2 rounded-full bg-slate-300" />
-                                    <span className="flex-1">{activity.name}</span>
-                                    <button
-                                      onClick={() => unlinkActivityFromSubFunction(sub.id, activity.id)}
-                                      className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded"
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </button>
-                                  </div>
-                                ))}
+                              {/* Actions */}
+                              <div className="flex items-center gap-2 mt-3 pt-3" style={{ borderTop: '1px solid var(--stone)' }}>
                                 <button
-                                  onClick={() => setShowAddActivity(sub.id)}
-                                  className="flex items-center gap-2 p-2 pl-20 text-sm text-blue-600 hover:bg-blue-50 w-full"
+                                  onClick={() => setShowLinkActivity(subFunc.id)}
+                                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-colors"
+                                  style={{ 
+                                    background: 'var(--mint)', 
+                                    color: 'var(--gk-green-dark)' 
+                                  }}
                                 >
-                                  <Plus className="h-4 w-4" />
-                                  Add Activity
+                                  <LinkIcon className="h-3 w-3" />
+                                  Link Activity
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditingSubFunction(subFunc.id)
+                                    setNewName(subFunc.name)
+                                    setNewDescription(subFunc.description || '')
+                                  }}
+                                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-colors"
+                                  style={{ 
+                                    background: 'var(--cream)', 
+                                    color: 'var(--text-secondary)' 
+                                  }}
+                                >
+                                  <Edit className="h-3 w-3" />
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => deleteSubFunction(subFunc.id)}
+                                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-colors hover:bg-red-100"
+                                  style={{ color: 'var(--text-muted)' }}
+                                >
+                                  <Trash2 className="h-3 w-3" />
                                 </button>
                               </div>
-                            )}
-                          </div>
-                        )
-                      })}
-                      
-                      <button
-                        onClick={() => setShowAddSubFunction(func.id)}
-                        className="flex items-center gap-2 p-3 pl-12 text-sm text-blue-600 hover:bg-blue-50 w-full"
-                      >
-                        <Plus className="h-4 w-4" />
-                        Add Sub-Function
-                      </button>
-                    </div>
-                  )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+
+                    {/* Add Sub-Function Button */}
+                    <button
+                      onClick={() => setShowAddSubFunction(func.id)}
+                      className="w-full mt-2 px-4 py-3 rounded-xl border-2 border-dashed flex items-center justify-center gap-2 text-sm font-medium transition-colors"
+                      style={{ 
+                        borderColor: 'var(--stone)', 
+                        color: 'var(--text-muted)',
+                        background: 'transparent'
+                      }}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add Sub-Function
+                    </button>
+                  </div>
                 </div>
               )
             })}
+
+            {/* Add Function Column */}
+            <div 
+              className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed cursor-pointer transition-colors hover:border-solid"
+              style={{ 
+                width: '200px', 
+                minHeight: '300px',
+                borderColor: 'var(--stone)',
+                background: 'var(--cream-light)'
+              }}
+              onClick={() => setShowAddFunction(true)}
+            >
+              <Plus className="h-8 w-8 mb-2" style={{ color: 'var(--text-muted)' }} />
+              <span className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
+                Add Function
+              </span>
+            </div>
           </div>
         )}
       </div>
 
       {/* Add Function Modal */}
       <Modal
-        open={showAddFunction}
+        isOpen={showAddFunction}
         onClose={() => {
           setShowAddFunction(false)
           setNewName('')
           setNewDescription('')
         }}
         title="Add Function"
-        description="Functions are the main areas of your business like Marketing, Sales, or Production."
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Name
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+              Function Name
             </label>
             <input
               type="text"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="e.g., Marketing, Sales, Production"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder="e.g., Sales, Marketing, Production"
+              className="w-full px-4 py-2 rounded-lg border"
+              style={{ 
+                borderColor: 'var(--stone)', 
+                background: 'var(--white)',
+                color: 'var(--text-primary)'
+              }}
               autoFocus
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
               Description (optional)
             </label>
             <textarea
               value={newDescription}
               onChange={(e) => setNewDescription(e.target.value)}
-              placeholder="Brief description of this function"
-              rows={2}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder="What does this function do?"
+              rows={3}
+              className="w-full px-4 py-2 rounded-lg border resize-none"
+              style={{ 
+                borderColor: 'var(--stone)', 
+                background: 'var(--white)',
+                color: 'var(--text-primary)'
+              }}
             />
           </div>
-          <div className="flex justify-end gap-3">
+          <div className="flex justify-end gap-3 pt-2">
             <button
               onClick={() => {
                 setShowAddFunction(false)
                 setNewName('')
                 setNewDescription('')
               }}
-              className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg"
+              className="px-4 py-2 rounded-lg font-medium"
+              style={{ color: 'var(--text-secondary)' }}
             >
               Cancel
             </button>
             <button
               onClick={handleAddFunction}
               disabled={!newName.trim()}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 rounded-lg font-medium text-white disabled:opacity-50"
+              style={{ background: 'var(--gk-green)' }}
             >
               Add Function
             </button>
@@ -415,56 +438,67 @@ export default function FunctionChartPage() {
 
       {/* Add Sub-Function Modal */}
       <Modal
-        open={showAddSubFunction !== null}
+        isOpen={!!showAddSubFunction}
         onClose={() => {
           setShowAddSubFunction(null)
           setNewName('')
           setNewDescription('')
         }}
         title="Add Sub-Function"
-        description="Sub-functions break down a function into more specific areas."
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Name
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+              Sub-Function Name
             </label>
             <input
               type="text"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="e.g., Lead Generation, Lead Nurturing"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder="e.g., Lead Generation, Customer Service"
+              className="w-full px-4 py-2 rounded-lg border"
+              style={{ 
+                borderColor: 'var(--stone)', 
+                background: 'var(--white)',
+                color: 'var(--text-primary)'
+              }}
               autoFocus
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
               Description (optional)
             </label>
             <textarea
               value={newDescription}
               onChange={(e) => setNewDescription(e.target.value)}
-              placeholder="Brief description"
-              rows={2}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder="What does this sub-function do?"
+              rows={3}
+              className="w-full px-4 py-2 rounded-lg border resize-none"
+              style={{ 
+                borderColor: 'var(--stone)', 
+                background: 'var(--white)',
+                color: 'var(--text-primary)'
+              }}
             />
           </div>
-          <div className="flex justify-end gap-3">
+          <div className="flex justify-end gap-3 pt-2">
             <button
               onClick={() => {
                 setShowAddSubFunction(null)
                 setNewName('')
                 setNewDescription('')
               }}
-              className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg"
+              className="px-4 py-2 rounded-lg font-medium"
+              style={{ color: 'var(--text-secondary)' }}
             >
               Cancel
             </button>
             <button
               onClick={() => showAddSubFunction && handleAddSubFunction(showAddSubFunction)}
               disabled={!newName.trim()}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 rounded-lg font-medium text-white disabled:opacity-50"
+              style={{ background: 'var(--gk-green)' }}
             >
               Add Sub-Function
             </button>
@@ -472,68 +506,9 @@ export default function FunctionChartPage() {
         </div>
       </Modal>
 
-      {/* Add Activity Modal */}
-      <Modal
-        open={showAddActivity !== null}
-        onClose={() => {
-          setShowAddActivity(null)
-          setNewName('')
-          setNewDescription('')
-        }}
-        title="Add Core Activity"
-        description="Core activities are specific actions — use verbs like 'Send proposal' or 'Schedule call'."
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Name
-            </label>
-            <input
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="e.g., Send follow-up email, Schedule discovery call"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              autoFocus
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Description (optional)
-            </label>
-            <textarea
-              value={newDescription}
-              onChange={(e) => setNewDescription(e.target.value)}
-              placeholder="Brief description"
-              rows={2}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-          <div className="flex justify-end gap-3">
-            <button
-              onClick={() => {
-                setShowAddActivity(null)
-                setNewName('')
-                setNewDescription('')
-              }}
-              className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => showAddActivity && handleAddActivity(showAddActivity)}
-              disabled={!newName.trim()}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Add Activity
-            </button>
-          </div>
-        </div>
-      </Modal>
-
       {/* Edit Function Modal */}
       <Modal
-        open={editingFunction !== null}
+        isOpen={!!editingFunction}
         onClose={() => {
           setEditingFunction(null)
           setNewName('')
@@ -543,43 +518,55 @@ export default function FunctionChartPage() {
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Name
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+              Function Name
             </label>
             <input
               type="text"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-4 py-2 rounded-lg border"
+              style={{ 
+                borderColor: 'var(--stone)', 
+                background: 'var(--white)',
+                color: 'var(--text-primary)'
+              }}
               autoFocus
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
               Description (optional)
             </label>
             <textarea
               value={newDescription}
               onChange={(e) => setNewDescription(e.target.value)}
-              rows={2}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              rows={3}
+              className="w-full px-4 py-2 rounded-lg border resize-none"
+              style={{ 
+                borderColor: 'var(--stone)', 
+                background: 'var(--white)',
+                color: 'var(--text-primary)'
+              }}
             />
           </div>
-          <div className="flex justify-end gap-3">
+          <div className="flex justify-end gap-3 pt-2">
             <button
               onClick={() => {
                 setEditingFunction(null)
                 setNewName('')
                 setNewDescription('')
               }}
-              className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg"
+              className="px-4 py-2 rounded-lg font-medium"
+              style={{ color: 'var(--text-secondary)' }}
             >
               Cancel
             </button>
             <button
               onClick={() => editingFunction && handleUpdateFunction(editingFunction)}
               disabled={!newName.trim()}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 rounded-lg font-medium text-white disabled:opacity-50"
+              style={{ background: 'var(--gk-green)' }}
             >
               Save Changes
             </button>
@@ -589,7 +576,7 @@ export default function FunctionChartPage() {
 
       {/* Edit Sub-Function Modal */}
       <Modal
-        open={editingSubFunction !== null}
+        isOpen={!!editingSubFunction}
         onClose={() => {
           setEditingSubFunction(null)
           setNewName('')
@@ -599,48 +586,161 @@ export default function FunctionChartPage() {
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Name
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+              Sub-Function Name
             </label>
             <input
               type="text"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-4 py-2 rounded-lg border"
+              style={{ 
+                borderColor: 'var(--stone)', 
+                background: 'var(--white)',
+                color: 'var(--text-primary)'
+              }}
               autoFocus
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
               Description (optional)
             </label>
             <textarea
               value={newDescription}
               onChange={(e) => setNewDescription(e.target.value)}
-              rows={2}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              rows={3}
+              className="w-full px-4 py-2 rounded-lg border resize-none"
+              style={{ 
+                borderColor: 'var(--stone)', 
+                background: 'var(--white)',
+                color: 'var(--text-primary)'
+              }}
             />
           </div>
-          <div className="flex justify-end gap-3">
+          <div className="flex justify-end gap-3 pt-2">
             <button
               onClick={() => {
                 setEditingSubFunction(null)
                 setNewName('')
                 setNewDescription('')
               }}
-              className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg"
+              className="px-4 py-2 rounded-lg font-medium"
+              style={{ color: 'var(--text-secondary)' }}
             >
               Cancel
             </button>
             <button
               onClick={() => editingSubFunction && handleUpdateSubFunction(editingSubFunction)}
               disabled={!newName.trim()}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 rounded-lg font-medium text-white disabled:opacity-50"
+              style={{ background: 'var(--gk-green)' }}
             >
               Save Changes
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* Link Activity Modal */}
+      <Modal
+        isOpen={!!showLinkActivity}
+        onClose={() => setShowLinkActivity(null)}
+        title="Link Core Activity"
+      >
+        <div className="space-y-4">
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+            Select a core activity to link to this sub-function.
+          </p>
+          <div className="max-h-64 overflow-y-auto space-y-2">
+            {coreActivities.length === 0 ? (
+              <p className="text-sm italic" style={{ color: 'var(--text-muted)' }}>
+                No core activities created yet. Create activities from the Core Activities page.
+              </p>
+            ) : (
+              coreActivities.map((activity) => {
+                const isLinked = showLinkActivity
+                  ? getActivitiesForSubFunction(showLinkActivity).some((a) => a.id === activity.id)
+                  : false
+                return (
+                  <div
+                    key={activity.id}
+                    className="flex items-center justify-between px-4 py-3 rounded-lg border cursor-pointer transition-colors"
+                    style={{ 
+                      borderColor: isLinked ? 'var(--gk-green)' : 'var(--stone)',
+                      background: isLinked ? 'var(--mint)' : 'var(--white)'
+                    }}
+                    onClick={() => {
+                      if (showLinkActivity) {
+                        if (isLinked) {
+                          unlinkActivityFromSubFunction(showLinkActivity, activity.id)
+                        } else {
+                          linkActivityToSubFunction(showLinkActivity, activity.id)
+                        }
+                      }
+                    }}
+                  >
+                    <span style={{ color: 'var(--text-primary)' }}>{activity.name}</span>
+                    {isLinked && (
+                      <span 
+                        className="text-xs px-2 py-1 rounded"
+                        style={{ background: 'var(--gk-green)', color: 'white' }}
+                      >
+                        Linked
+                      </span>
+                    )}
+                  </div>
+                )
+              })
+            )}
+          </div>
+          <div className="flex justify-end pt-2">
+            <button
+              onClick={() => setShowLinkActivity(null)}
+              className="px-4 py-2 rounded-lg font-medium text-white"
+              style={{ background: 'var(--gk-green)' }}
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Activity Detail Modal */}
+      <Modal
+        isOpen={!!showActivityDetail}
+        onClose={() => setShowActivityDetail(null)}
+        title={showActivityDetail?.name || 'Activity Detail'}
+      >
+        {showActivityDetail && (
+          <div className="space-y-4">
+            {showActivityDetail.description && (
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
+                  Description
+                </label>
+                <p style={{ color: 'var(--text-secondary)' }}>{showActivityDetail.description}</p>
+              </div>
+            )}
+            {showActivityDetail.notes && (
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
+                  Notes
+                </label>
+                <p style={{ color: 'var(--text-secondary)' }}>{showActivityDetail.notes}</p>
+              </div>
+            )}
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setShowActivityDetail(null)}
+                className="px-4 py-2 rounded-lg font-medium text-white"
+                style={{ background: 'var(--gk-green)' }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   )

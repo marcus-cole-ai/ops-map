@@ -1,235 +1,321 @@
 'use client'
 
 import { useState } from 'react'
-import { Header } from '@/components/layout/Header'
-import { Modal } from '@/components/ui/Modal'
 import { useOpsMapStore } from '@/store'
-import { Monitor, Plus, MoreHorizontal, Edit2, Trash2, ExternalLink } from 'lucide-react'
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+import { Plus, Search, Edit, Trash2, Monitor, ExternalLink, ChevronRight } from 'lucide-react'
+import { Modal } from '@/components/ui/Modal'
+import type { Software } from '@/types'
 
 export default function SoftwarePage() {
-  const software = useOpsMapStore((state) => state.software)
-  const addSoftware = useOpsMapStore((state) => state.addSoftware)
-  const updateSoftware = useOpsMapStore((state) => state.updateSoftware)
-  const deleteSoftware = useOpsMapStore((state) => state.deleteSoftware)
+  const {
+    software,
+    addSoftware,
+    updateSoftware,
+    deleteSoftware,
+  } = useOpsMapStore()
 
-  const [showAddSoftware, setShowAddSoftware] = useState(false)
-  const [editingSoftware, setEditingSoftware] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [selectedSoftware, setSelectedSoftware] = useState<Software | null>(null)
   const [newName, setNewName] = useState('')
   const [newUrl, setNewUrl] = useState('')
 
+  const filteredSoftware = software.filter((s) =>
+    s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (s.url?.toLowerCase().includes(searchQuery.toLowerCase()))
+  )
+
   const handleAddSoftware = () => {
-    if (newName.trim()) {
-      addSoftware(newName.trim(), newUrl.trim() || undefined)
-      setNewName('')
-      setNewUrl('')
-      setShowAddSoftware(false)
-    }
+    if (!newName.trim()) return
+    const sw = addSoftware(newName.trim(), newUrl.trim() || undefined)
+    setNewName('')
+    setNewUrl('')
+    setShowAddModal(false)
+    setSelectedSoftware(sw)
   }
 
-  const handleUpdateSoftware = () => {
-    if (editingSoftware && newName.trim()) {
-      updateSoftware(editingSoftware, {
-        name: newName.trim(),
-        url: newUrl.trim() || undefined,
-      })
-      setNewName('')
-      setNewUrl('')
-      setEditingSoftware(null)
+  const handleUpdateSoftware = (updates: Partial<Software>) => {
+    if (selectedSoftware) {
+      updateSoftware(selectedSoftware.id, updates)
+      setSelectedSoftware({ ...selectedSoftware, ...updates })
     }
   }
 
   return (
-    <div>
-      <Header
-        title="Software"
-        description="Tools and software used for activities"
-        action={{
-          label: 'Add Software',
-          onClick: () => setShowAddSoftware(true),
-        }}
-      />
-
-      <div className="p-6">
-        {software.length === 0 ? (
-          <div className="rounded-xl border-2 border-dashed border-slate-300 bg-white p-12 text-center">
-            <div className="mx-auto h-12 w-12 rounded-full bg-cyan-100 p-3">
-              <Monitor className="h-6 w-6 text-cyan-600" />
-            </div>
-            <h3 className="mt-4 text-lg font-semibold text-slate-900">No software yet</h3>
-            <p className="mt-2 text-sm text-slate-500">
-              Track the tools and software used for different activities.
-            </p>
+    <div className="flex h-full" style={{ background: 'var(--cream)' }}>
+      {/* List Panel */}
+      <div 
+        className="w-96 flex-shrink-0 flex flex-col h-full"
+        style={{ borderRight: '1px solid var(--stone)' }}
+      >
+        {/* Header */}
+        <div className="flex-shrink-0 px-6 py-5" style={{ background: 'var(--gk-charcoal)' }}>
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-xl font-bold text-white">Software</h1>
             <button
-              onClick={() => setShowAddSoftware(true)}
-              className="mt-4 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700"
+              onClick={() => setShowAddModal(true)}
+              className="p-2 rounded-lg transition-colors"
+              style={{ background: 'var(--gk-green)' }}
             >
-              Add Your First Tool
+              <Plus className="h-5 w-5 text-white" />
             </button>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {software.map((sw) => (
-              <div
-                key={sw.id}
-                className="rounded-xl border border-slate-200 bg-white p-4"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-100 text-cyan-600">
-                      <Monitor className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-slate-900">{sw.name}</h3>
-                      {sw.url && (
-                        <a
-                          href={sw.url.startsWith('http') ? sw.url : `https://${sw.url}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-cyan-600 hover:underline flex items-center gap-1"
+          
+          {/* Search */}
+          <div className="relative">
+            <Search 
+              className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4"
+              style={{ color: 'var(--text-muted)' }}
+            />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search software..."
+              className="w-full pl-10 pr-4 py-2 rounded-lg text-sm"
+              style={{ 
+                background: 'rgba(255,255,255,0.1)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                color: 'white'
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Software List */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {filteredSoftware.length === 0 ? (
+            <div className="text-center py-8">
+              <p style={{ color: 'var(--text-muted)' }}>
+                {searchQuery ? 'No software matches your search' : 'No software added yet'}
+              </p>
+              {!searchQuery && (
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="mt-4 px-4 py-2 rounded-lg font-medium text-white"
+                  style={{ background: 'var(--gk-green)' }}
+                >
+                  Add First Software
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filteredSoftware.map((sw) => {
+                const isSelected = selectedSoftware?.id === sw.id
+
+                return (
+                  <div
+                    key={sw.id}
+                    onClick={() => setSelectedSoftware(sw)}
+                    className="p-4 rounded-lg cursor-pointer transition-all"
+                    style={{ 
+                      background: isSelected ? 'var(--mint)' : 'var(--white)',
+                      border: `1px solid ${isSelected ? 'var(--gk-green)' : 'var(--stone)'}`,
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-10 h-10 rounded-lg flex items-center justify-center"
+                        style={{ background: 'var(--dusty-blue)' }}
+                      >
+                        <Monitor className="h-5 w-5" style={{ color: '#3d4f5f' }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 
+                          className="font-medium truncate"
+                          style={{ color: 'var(--text-primary)' }}
                         >
-                          {sw.url.replace(/^https?:\/\//, '')}
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      )}
+                          {sw.name}
+                        </h3>
+                        {sw.url && (
+                          <p 
+                            className="text-xs truncate mt-0.5"
+                            style={{ color: 'var(--text-muted)' }}
+                          >
+                            {sw.url.replace(/^https?:\/\//, '')}
+                          </p>
+                        )}
+                      </div>
+                      <ChevronRight 
+                        className="h-5 w-5 flex-shrink-0"
+                        style={{ color: 'var(--text-muted)' }}
+                      />
                     </div>
                   </div>
-                  <DropdownMenu.Root>
-                    <DropdownMenu.Trigger asChild>
-                      <button className="p-1 hover:bg-slate-100 rounded">
-                        <MoreHorizontal className="h-4 w-4 text-slate-500" />
-                      </button>
-                    </DropdownMenu.Trigger>
-                    <DropdownMenu.Portal>
-                      <DropdownMenu.Content className="min-w-[140px] bg-white rounded-lg shadow-lg border border-slate-200 p-1 z-50">
-                        <DropdownMenu.Item
-                          className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded cursor-pointer outline-none"
-                          onClick={() => {
-                            setNewName(sw.name)
-                            setNewUrl(sw.url || '')
-                            setEditingSoftware(sw.id)
-                          }}
-                        >
-                          <Edit2 className="h-4 w-4" /> Edit
-                        </DropdownMenu.Item>
-                        <DropdownMenu.Item
-                          className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded cursor-pointer outline-none"
-                          onClick={() => deleteSoftware(sw.id)}
-                        >
-                          <Trash2 className="h-4 w-4" /> Delete
-                        </DropdownMenu.Item>
-                      </DropdownMenu.Content>
-                    </DropdownMenu.Portal>
-                  </DropdownMenu.Root>
-                </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Detail Panel */}
+      <div className="flex-1 overflow-y-auto">
+        {selectedSoftware ? (
+          <div className="p-8 max-w-2xl">
+            {/* Software Header */}
+            <div className="flex items-start gap-4 mb-6">
+              <div 
+                className="w-16 h-16 rounded-xl flex items-center justify-center"
+                style={{ background: 'var(--dusty-blue)' }}
+              >
+                <Monitor className="h-8 w-8" style={{ color: '#3d4f5f' }} />
               </div>
-            ))}
+              <div className="flex-1">
+                <input
+                  type="text"
+                  value={selectedSoftware.name}
+                  onChange={(e) => handleUpdateSoftware({ name: e.target.value })}
+                  className="text-2xl font-bold w-full bg-transparent border-none focus:outline-none"
+                  style={{ color: 'var(--text-primary)' }}
+                />
+              </div>
+              <button
+                onClick={() => {
+                  deleteSoftware(selectedSoftware.id)
+                  setSelectedSoftware(null)
+                }}
+                className="p-2 rounded-lg transition-colors hover:bg-red-100"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                <Trash2 className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* URL */}
+            <div className="mb-6">
+              <label 
+                className="block text-xs font-semibold uppercase tracking-wider mb-2"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                Website URL
+              </label>
+              <div className="relative">
+                <input
+                  type="url"
+                  value={selectedSoftware.url || ''}
+                  onChange={(e) => handleUpdateSoftware({ url: e.target.value })}
+                  placeholder="https://example.com"
+                  className="w-full px-4 py-3 rounded-lg border pr-12"
+                  style={{ 
+                    borderColor: 'var(--stone)', 
+                    background: 'var(--white)',
+                    color: 'var(--text-primary)'
+                  }}
+                />
+                {selectedSoftware.url && (
+                  <a
+                    href={selectedSoftware.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-gray-100"
+                  >
+                    <ExternalLink className="h-4 w-4" style={{ color: 'var(--gk-green)' }} />
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Link */}
+            {selectedSoftware.url && (
+              <a
+                href={selectedSoftware.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium"
+                style={{ background: 'var(--mint)', color: 'var(--gk-green-dark)' }}
+              >
+                <ExternalLink className="h-4 w-4" />
+                Open {selectedSoftware.name}
+              </a>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <div 
+                className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+                style={{ background: 'var(--cream-light)' }}
+              >
+                <Monitor className="h-8 w-8" style={{ color: 'var(--text-muted)' }} />
+              </div>
+              <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                Select Software
+              </h2>
+              <p style={{ color: 'var(--text-muted)' }}>
+                Choose software from the list to view and edit details
+              </p>
+            </div>
           </div>
         )}
       </div>
 
       {/* Add Software Modal */}
       <Modal
-        open={showAddSoftware}
+        isOpen={showAddModal}
         onClose={() => {
-          setShowAddSoftware(false)
+          setShowAddModal(false)
           setNewName('')
           setNewUrl('')
         }}
         title="Add Software"
-        description="Track tools and software used for activities."
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+              Software Name
+            </label>
             <input
               type="text"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="e.g., HubSpot, Slack, Notion"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+              placeholder="e.g., HubSpot, QuickBooks, BuilderTrend"
+              className="w-full px-4 py-2 rounded-lg border"
+              style={{ 
+                borderColor: 'var(--stone)', 
+                background: 'var(--white)',
+                color: 'var(--text-primary)'
+              }}
               autoFocus
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">URL (optional)</label>
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+              Website URL (optional)
+            </label>
             <input
-              type="text"
+              type="url"
               value={newUrl}
               onChange={(e) => setNewUrl(e.target.value)}
-              placeholder="https://..."
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+              placeholder="https://example.com"
+              className="w-full px-4 py-2 rounded-lg border"
+              style={{ 
+                borderColor: 'var(--stone)', 
+                background: 'var(--white)',
+                color: 'var(--text-primary)'
+              }}
             />
           </div>
-          <div className="flex justify-end gap-3">
+          <div className="flex justify-end gap-3 pt-2">
             <button
               onClick={() => {
-                setShowAddSoftware(false)
+                setShowAddModal(false)
                 setNewName('')
                 setNewUrl('')
               }}
-              className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg"
+              className="px-4 py-2 rounded-lg font-medium"
+              style={{ color: 'var(--text-secondary)' }}
             >
               Cancel
             </button>
             <button
               onClick={handleAddSoftware}
               disabled={!newName.trim()}
-              className="px-4 py-2 text-sm font-medium text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg disabled:opacity-50"
+              className="px-4 py-2 rounded-lg font-medium text-white disabled:opacity-50"
+              style={{ background: 'var(--gk-green)' }}
             >
               Add Software
-            </button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Edit Software Modal */}
-      <Modal
-        open={editingSoftware !== null}
-        onClose={() => {
-          setEditingSoftware(null)
-          setNewName('')
-          setNewUrl('')
-        }}
-        title="Edit Software"
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
-            <input
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
-              autoFocus
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">URL (optional)</label>
-            <input
-              type="text"
-              value={newUrl}
-              onChange={(e) => setNewUrl(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
-            />
-          </div>
-          <div className="flex justify-end gap-3">
-            <button
-              onClick={() => {
-                setEditingSoftware(null)
-                setNewName('')
-                setNewUrl('')
-              }}
-              className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleUpdateSoftware}
-              disabled={!newName.trim()}
-              className="px-4 py-2 text-sm font-medium text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg disabled:opacity-50"
-            >
-              Save Changes
             </button>
           </div>
         </div>

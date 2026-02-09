@@ -1,227 +1,330 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useOpsMapStore } from '@/store'
-import { Header } from '@/components/layout/Header'
 import Link from 'next/link'
-import { LayoutGrid, GitBranch, Activity, AlertCircle, Users, Briefcase, Monitor, ArrowRight, Zap } from 'lucide-react'
+import { 
+  LayoutGrid, 
+  GitBranch, 
+  Activity, 
+  Users, 
+  AlertCircle,
+  ArrowRight,
+  CheckCircle2,
+  XCircle
+} from 'lucide-react'
+import { WelcomeModal } from '@/components/WelcomeModal'
 
-export default function Home() {
-  const company = useOpsMapStore((state) => state.company)
-  const functions = useOpsMapStore((state) => state.functions)
-  const subFunctions = useOpsMapStore((state) => state.subFunctions)
-  const coreActivities = useOpsMapStore((state) => state.coreActivities)
-  const workflows = useOpsMapStore((state) => state.workflows)
-  const phases = useOpsMapStore((state) => state.phases)
-  const steps = useOpsMapStore((state) => state.steps)
-  const people = useOpsMapStore((state) => state.people)
-  const roles = useOpsMapStore((state) => state.roles)
-  const software = useOpsMapStore((state) => state.software)
+export default function DashboardPage() {
+  const {
+    company,
+    functions,
+    subFunctions,
+    coreActivities,
+    workflows,
+    phases,
+    steps,
+    people,
+    roles,
+  } = useOpsMapStore()
 
-  // Calculate gaps
-  const functionsWithNoSubs = functions.filter(
-    (f) => !subFunctions.some((sf) => sf.functionId === f.id)
-  )
-  const subFunctionsWithNoActivities = subFunctions.filter(
-    (sf) => !useOpsMapStore.getState().getActivitiesForSubFunction(sf.id).length
-  )
-  const phasesWithNoSteps = phases.filter(
-    (p) => !steps.some((s) => s.phaseId === p.id)
-  )
-  const activitiesWithNoOwner = coreActivities.filter(a => !a.ownerId)
-  const totalGaps = functionsWithNoSubs.length + subFunctionsWithNoActivities.length + phasesWithNoSteps.length
+  const [showWelcome, setShowWelcome] = useState(false)
 
-  // Calculate completion percentage
-  const totalItems = functions.length + subFunctions.length + phases.length + coreActivities.length
-  const incompleteItems = functionsWithNoSubs.length + subFunctionsWithNoActivities.length + phasesWithNoSteps.length + activitiesWithNoOwner.length
-  const completionPercent = totalItems > 0 ? Math.round(((totalItems - incompleteItems) / totalItems) * 100) : 0
+  // Check if first time user
+  useEffect(() => {
+    const hasSeenWelcome = localStorage.getItem('ops-map-welcomed')
+    if (!hasSeenWelcome && functions.length === 0 && workflows.length === 0) {
+      setShowWelcome(true)
+    }
+  }, [functions.length, workflows.length])
 
-  const hasData = functions.length > 0 || workflows.length > 0
+  const handleCloseWelcome = () => {
+    localStorage.setItem('ops-map-welcomed', 'true')
+    setShowWelcome(false)
+  }
 
-  const mainStats = [
-    { name: 'Functions', value: functions.length, subValue: `${subFunctions.length} sub-functions`, icon: LayoutGrid, color: 'bg-blue-500', href: '/function-chart' },
-    { name: 'Workflows', value: workflows.length, subValue: `${phases.length} phases, ${steps.length} steps`, icon: GitBranch, color: 'bg-emerald-500', href: '/workflows' },
-    { name: 'Activities', value: coreActivities.length, subValue: `${activitiesWithNoOwner.length} unassigned`, icon: Activity, color: 'bg-violet-500', href: '/activities' },
-    { name: 'Gaps', value: totalGaps, subValue: totalGaps > 0 ? 'Need attention' : 'All complete', icon: AlertCircle, color: totalGaps > 0 ? 'bg-amber-500' : 'bg-green-500', href: '/gaps' },
-  ]
+  // Calculate stats
+  const activitiesWithOwner = coreActivities.filter((a) => a.ownerId).length
+  const activitiesWithRole = coreActivities.filter((a) => a.roleId).length
+  const assignedActivities = coreActivities.filter((a) => a.ownerId || a.roleId).length
+  const unassignedActivities = coreActivities.length - assignedActivities
+  
+  const completionRate = coreActivities.length > 0 
+    ? Math.round((assignedActivities / coreActivities.length) * 100) 
+    : 0
 
-  const secondaryStats = [
-    { name: 'People', value: people.length, icon: Users, href: '/people' },
-    { name: 'Roles', value: roles.length, icon: Briefcase, href: '/roles' },
-    { name: 'Software', value: software.length, icon: Monitor, href: '/software' },
+  const stats = [
+    {
+      label: 'Functions',
+      value: functions.length,
+      subLabel: `${subFunctions.length} sub-functions`,
+      icon: LayoutGrid,
+      href: '/function-chart',
+      color: 'var(--gk-green)',
+    },
+    {
+      label: 'Workflows',
+      value: workflows.length,
+      subLabel: `${phases.length} phases, ${steps.length} steps`,
+      icon: GitBranch,
+      href: '/workflows',
+      color: '#c4785a',
+    },
+    {
+      label: 'Core Activities',
+      value: coreActivities.length,
+      subLabel: `${assignedActivities} assigned`,
+      icon: Activity,
+      href: '/activities',
+      color: '#3d4f5f',
+    },
+    {
+      label: 'People',
+      value: people.length,
+      subLabel: `${roles.length} roles defined`,
+      icon: Users,
+      href: '/people',
+      color: '#8b6b7b',
+    },
   ]
 
   return (
-    <div>
-      <Header 
-        title={`${company?.name || 'My Company'}`} 
-        description="Operations mapping dashboard" 
-      />
-      
-      <div className="p-6 space-y-8">
-        {/* Completion Progress (only show if there's data) */}
-        {hasData && (
-          <div className="bg-white rounded-xl border border-slate-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900">Operations Map Progress</h2>
-                <p className="text-sm text-slate-500">Completeness of your business documentation</p>
-              </div>
-              <div className="text-right">
-                <span className="text-3xl font-bold text-slate-900">{completionPercent}%</span>
-                <p className="text-xs text-slate-500">complete</p>
-              </div>
-            </div>
-            <div className="w-full bg-slate-100 rounded-full h-3">
-              <div 
-                className="bg-gradient-to-r from-blue-500 to-emerald-500 h-3 rounded-full transition-all duration-500"
-                style={{ width: `${completionPercent}%` }}
-              />
-            </div>
-          </div>
-        )}
+    <div className="min-h-full p-8" style={{ background: 'var(--cream)' }}>
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+          {company?.name || 'OpsMap'}
+        </h1>
+        <p style={{ color: 'var(--text-secondary)' }}>
+          Map your operations, identify gaps, and build clarity
+        </p>
+      </div>
 
-        {/* Main Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {mainStats.map((stat) => (
-            <Link
-              key={stat.name}
-              href={stat.href}
-              className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-lg hover:border-slate-300 transition-all group"
-            >
-              <div className="flex items-start justify-between">
-                <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${stat.color} group-hover:scale-110 transition-transform`}>
-                  <stat.icon className="h-6 w-6 text-white" />
-                </div>
-                <ArrowRight className="h-5 w-5 text-slate-300 group-hover:text-slate-500 group-hover:translate-x-1 transition-all" />
-              </div>
-              <div className="mt-4">
-                <p className="text-3xl font-bold text-slate-900">{stat.value}</p>
-                <p className="text-sm font-medium text-slate-600">{stat.name}</p>
-                <p className="text-xs text-slate-400 mt-1">{stat.subValue}</p>
-              </div>
-            </Link>
-          ))}
-        </div>
-
-        {/* Quick Actions & Secondary Stats */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Quick Actions */}
-          <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-6">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Quick Start</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Link
-                href="/function-chart"
-                className="group p-4 rounded-xl border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-all"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                    <LayoutGrid className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-slate-900">Function Chart</h3>
-                    <p className="text-xs text-slate-500">Define what happens</p>
-                  </div>
-                </div>
-              </Link>
-
-              <Link
-                href="/workflows"
-                className="group p-4 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 transition-all"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                    <GitBranch className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-slate-900">Workflows</h3>
-                    <p className="text-xs text-slate-500">Map how work flows</p>
-                  </div>
-                </div>
-              </Link>
-
-              <Link
-                href="/gaps"
-                className="group p-4 rounded-xl border border-slate-200 hover:border-amber-300 hover:bg-amber-50 transition-all"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition-colors">
-                    <AlertCircle className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-slate-900">Find Gaps</h3>
-                    <p className="text-xs text-slate-500">Identify incomplete areas</p>
-                  </div>
-                </div>
-              </Link>
-
-              <Link
-                href="/settings"
-                className="group p-4 rounded-xl border border-slate-200 hover:border-violet-300 hover:bg-violet-50 transition-all"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-100 text-violet-600 group-hover:bg-violet-600 group-hover:text-white transition-colors">
-                    <Zap className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-slate-900">Load Demo</h3>
-                    <p className="text-xs text-slate-500">Try with sample data</p>
-                  </div>
-                </div>
-              </Link>
-            </div>
-          </div>
-
-          {/* Secondary Stats */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Resources</h2>
-            <div className="space-y-3">
-              {secondaryStats.map((stat) => (
-                <Link
-                  key={stat.name}
-                  href={stat.href}
-                  className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100">
-                      <stat.icon className="h-4 w-4 text-slate-600" />
-                    </div>
-                    <span className="text-sm font-medium text-slate-700">{stat.name}</span>
-                  </div>
-                  <span className="text-lg font-semibold text-slate-900">{stat.value}</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Empty State */}
-        {!hasData && (
-          <div className="bg-gradient-to-br from-blue-50 to-emerald-50 rounded-xl border-2 border-dashed border-blue-200 p-12 text-center">
-            <div className="mx-auto w-16 h-16 rounded-full bg-white shadow-lg flex items-center justify-center mb-6">
-              <LayoutGrid className="h-8 w-8 text-blue-600" />
-            </div>
-            <h3 className="text-xl font-semibold text-slate-900">Ready to map your operations?</h3>
-            <p className="mt-2 text-slate-600 max-w-md mx-auto">
-              Start by building your function chart to define what happens in your business, 
-              then create workflows to show how work flows through it.
+      {/* Completion Progress */}
+      <div 
+        className="rounded-xl p-6 mb-8"
+        style={{ background: 'var(--white)', border: '1px solid var(--stone)' }}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+              Operations Coverage
+            </h2>
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              {assignedActivities} of {coreActivities.length} core activities have an owner or role assigned
             </p>
-            <div className="mt-8 flex justify-center gap-4">
-              <Link
-                href="/function-chart"
-                className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Build Function Chart
-              </Link>
-              <Link
-                href="/settings"
-                className="px-6 py-3 bg-white text-slate-700 font-medium rounded-lg border border-slate-300 hover:bg-slate-50 transition-colors"
-              >
-                Load Demo Data
-              </Link>
-            </div>
           </div>
+          <div 
+            className="text-3xl font-bold"
+            style={{ color: completionRate >= 80 ? 'var(--gk-green)' : completionRate >= 50 ? '#b8956e' : '#c4785a' }}
+          >
+            {completionRate}%
+          </div>
+        </div>
+        <div 
+          className="h-3 rounded-full overflow-hidden"
+          style={{ background: 'var(--cream)' }}
+        >
+          <div 
+            className="h-full rounded-full transition-all duration-500"
+            style={{ 
+              width: `${completionRate}%`,
+              background: completionRate >= 80 ? 'var(--gk-green)' : completionRate >= 50 ? '#b8956e' : '#c4785a'
+            }}
+          />
+        </div>
+        {unassignedActivities > 0 && (
+          <Link 
+            href="/gaps"
+            className="inline-flex items-center gap-2 mt-4 text-sm font-medium transition-colors"
+            style={{ color: 'var(--gk-green)' }}
+          >
+            <AlertCircle className="h-4 w-4" />
+            {unassignedActivities} activities need attention
+            <ArrowRight className="h-4 w-4" />
+          </Link>
         )}
       </div>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {stats.map((stat) => (
+          <Link
+            key={stat.label}
+            href={stat.href}
+            className="rounded-xl p-5 transition-all hover:shadow-md"
+            style={{ background: 'var(--white)', border: '1px solid var(--stone)' }}
+          >
+            <div className="flex items-start justify-between mb-3">
+              <div 
+                className="p-2 rounded-lg"
+                style={{ background: `${stat.color}20` }}
+              >
+                <stat.icon className="h-5 w-5" style={{ color: stat.color }} />
+              </div>
+              <ArrowRight className="h-4 w-4" style={{ color: 'var(--text-muted)' }} />
+            </div>
+            <div className="text-2xl font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
+              {stat.value}
+            </div>
+            <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+              {stat.label}
+            </div>
+            <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+              {stat.subLabel}
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+        {/* Gap Summary */}
+        <div 
+          className="rounded-xl p-6"
+          style={{ background: 'var(--white)', border: '1px solid var(--stone)' }}
+        >
+          <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+            Gap Summary
+          </h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {unassignedActivities === 0 ? (
+                  <CheckCircle2 className="h-5 w-5" style={{ color: 'var(--gk-green)' }} />
+                ) : (
+                  <XCircle className="h-5 w-5" style={{ color: '#c4785a' }} />
+                )}
+                <span style={{ color: 'var(--text-secondary)' }}>Activities without owner/role</span>
+              </div>
+              <span 
+                className="font-semibold"
+                style={{ color: unassignedActivities === 0 ? 'var(--gk-green)' : '#c4785a' }}
+              >
+                {unassignedActivities}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {subFunctions.length === 0 ? (
+                  <XCircle className="h-5 w-5" style={{ color: 'var(--text-muted)' }} />
+                ) : (
+                  <CheckCircle2 className="h-5 w-5" style={{ color: 'var(--gk-green)' }} />
+                )}
+                <span style={{ color: 'var(--text-secondary)' }}>Sub-functions defined</span>
+              </div>
+              <span 
+                className="font-semibold"
+                style={{ color: subFunctions.length > 0 ? 'var(--gk-green)' : 'var(--text-muted)' }}
+              >
+                {subFunctions.length}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {steps.length === 0 ? (
+                  <XCircle className="h-5 w-5" style={{ color: 'var(--text-muted)' }} />
+                ) : (
+                  <CheckCircle2 className="h-5 w-5" style={{ color: 'var(--gk-green)' }} />
+                )}
+                <span style={{ color: 'var(--text-secondary)' }}>Workflow steps defined</span>
+              </div>
+              <span 
+                className="font-semibold"
+                style={{ color: steps.length > 0 ? 'var(--gk-green)' : 'var(--text-muted)' }}
+              >
+                {steps.length}
+              </span>
+            </div>
+          </div>
+          <Link 
+            href="/gaps"
+            className="flex items-center justify-center gap-2 mt-4 px-4 py-2 rounded-lg font-medium text-white"
+            style={{ background: 'var(--gk-green)' }}
+          >
+            View Gap Analysis
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+
+        {/* Recent Activity */}
+        <div 
+          className="rounded-xl p-6"
+          style={{ background: 'var(--white)', border: '1px solid var(--stone)' }}
+        >
+          <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+            Quick Start
+          </h3>
+          <div className="space-y-3">
+            <Link
+              href="/function-chart"
+              className="flex items-center gap-3 p-3 rounded-lg transition-colors"
+              style={{ background: 'var(--cream)' }}
+            >
+              <div 
+                className="p-2 rounded-lg"
+                style={{ background: 'var(--mint)' }}
+              >
+                <LayoutGrid className="h-4 w-4" style={{ color: 'var(--gk-green)' }} />
+              </div>
+              <div className="flex-1">
+                <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  Build Function Chart
+                </div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Define your organizational structure
+                </div>
+              </div>
+              <ArrowRight className="h-4 w-4" style={{ color: 'var(--text-muted)' }} />
+            </Link>
+            <Link
+              href="/workflows"
+              className="flex items-center gap-3 p-3 rounded-lg transition-colors"
+              style={{ background: 'var(--cream)' }}
+            >
+              <div 
+                className="p-2 rounded-lg"
+                style={{ background: 'var(--sand)' }}
+              >
+                <GitBranch className="h-4 w-4" style={{ color: '#b8956e' }} />
+              </div>
+              <div className="flex-1">
+                <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  Map Workflows
+                </div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Document your key processes
+                </div>
+              </div>
+              <ArrowRight className="h-4 w-4" style={{ color: 'var(--text-muted)' }} />
+            </Link>
+            <Link
+              href="/activities"
+              className="flex items-center gap-3 p-3 rounded-lg transition-colors"
+              style={{ background: 'var(--cream)' }}
+            >
+              <div 
+                className="p-2 rounded-lg"
+                style={{ background: 'var(--dusty-blue)' }}
+              >
+                <Activity className="h-4 w-4" style={{ color: '#3d4f5f' }} />
+              </div>
+              <div className="flex-1">
+                <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  Define Core Activities
+                </div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  List activities and assign owners
+                </div>
+              </div>
+              <ArrowRight className="h-4 w-4" style={{ color: 'var(--text-muted)' }} />
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Welcome Modal */}
+      <WelcomeModal isOpen={showWelcome} onClose={handleCloseWelcome} />
     </div>
   )
 }

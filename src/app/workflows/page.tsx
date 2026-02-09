@@ -1,208 +1,260 @@
 'use client'
 
 import { useState } from 'react'
-import { Header } from '@/components/layout/Header'
-import { Modal } from '@/components/ui/Modal'
 import { useOpsMapStore } from '@/store'
 import Link from 'next/link'
-import { GitBranch, Plus, MoreHorizontal, Trash2, Edit2, ArrowRight } from 'lucide-react'
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+import { Plus, GitBranch, ArrowRight, Edit, Trash2, MoreHorizontal } from 'lucide-react'
+import { Modal } from '@/components/ui/Modal'
 
 export default function WorkflowsPage() {
-  const workflows = useOpsMapStore((state) => state.workflows)
-  const addWorkflow = useOpsMapStore((state) => state.addWorkflow)
-  const updateWorkflow = useOpsMapStore((state) => state.updateWorkflow)
-  const deleteWorkflow = useOpsMapStore((state) => state.deleteWorkflow)
-  const phases = useOpsMapStore((state) => state.phases)
+  const {
+    workflows,
+    phases,
+    steps,
+    addWorkflow,
+    updateWorkflow,
+    deleteWorkflow,
+  } = useOpsMapStore()
 
-  const [showAddWorkflow, setShowAddWorkflow] = useState(false)
+  const [showAddModal, setShowAddModal] = useState(false)
   const [editingWorkflow, setEditingWorkflow] = useState<string | null>(null)
   const [newName, setNewName] = useState('')
   const [newDescription, setNewDescription] = useState('')
 
   const handleAddWorkflow = () => {
-    if (newName.trim()) {
-      addWorkflow(newName.trim(), newDescription.trim() || undefined)
-      setNewName('')
-      setNewDescription('')
-      setShowAddWorkflow(false)
-    }
+    if (!newName.trim()) return
+    addWorkflow(newName.trim(), newDescription.trim() || undefined)
+    setNewName('')
+    setNewDescription('')
+    setShowAddModal(false)
   }
 
   const handleUpdateWorkflow = (id: string) => {
-    if (newName.trim()) {
-      updateWorkflow(id, { name: newName.trim(), description: newDescription.trim() || undefined })
-      setNewName('')
-      setNewDescription('')
-      setEditingWorkflow(null)
+    if (!newName.trim()) return
+    updateWorkflow(id, { name: newName.trim(), description: newDescription.trim() || undefined })
+    setNewName('')
+    setNewDescription('')
+    setEditingWorkflow(null)
+  }
+
+  const getWorkflowStats = (workflowId: string) => {
+    const workflowPhases = phases.filter((p) => p.workflowId === workflowId)
+    const phaseIds = workflowPhases.map((p) => p.id)
+    const workflowSteps = steps.filter((s) => phaseIds.includes(s.phaseId))
+    return {
+      phases: workflowPhases.length,
+      steps: workflowSteps.length,
     }
   }
 
-  const getPhaseCount = (workflowId: string) => {
-    return phases.filter(p => p.workflowId === workflowId).length
-  }
-
   return (
-    <div>
-      <Header
-        title="Workflows"
-        description="How work flows through your business — processes and steps"
-        action={{
-          label: 'Add Workflow',
-          onClick: () => setShowAddWorkflow(true),
-        }}
-      />
+    <div className="min-h-full p-8" style={{ background: 'var(--cream)' }}>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+            Workflows
+          </h1>
+          <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>
+            Document your key processes and procedures
+          </p>
+        </div>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-white"
+          style={{ background: 'var(--gk-green)' }}
+        >
+          <Plus className="h-4 w-4" />
+          Add Workflow
+        </button>
+      </div>
 
-      <div className="p-6">
-        {workflows.length === 0 ? (
-          <div className="rounded-xl border-2 border-dashed border-slate-300 bg-white p-12 text-center">
-            <div className="mx-auto h-12 w-12 rounded-full bg-emerald-100 p-3">
-              <GitBranch className="h-6 w-6 text-emerald-600" />
+      {/* Workflows Grid */}
+      {workflows.length === 0 ? (
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center max-w-md">
+            <div 
+              className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+              style={{ background: 'var(--mint)' }}
+            >
+              <GitBranch className="h-8 w-8" style={{ color: 'var(--gk-green)' }} />
             </div>
-            <h3 className="mt-4 text-lg font-semibold text-slate-900">No workflows yet</h3>
-            <p className="mt-2 text-sm text-slate-500">
-              Create your first workflow to map how work moves through your business.
+            <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+              No Workflows Yet
+            </h2>
+            <p className="mb-6" style={{ color: 'var(--text-secondary)' }}>
+              Workflows document how work flows through your organization. Start with your most important process.
             </p>
             <button
-              onClick={() => setShowAddWorkflow(true)}
-              className="mt-4 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+              onClick={() => setShowAddModal(true)}
+              className="px-6 py-3 rounded-lg font-medium text-white"
+              style={{ background: 'var(--gk-green)' }}
             >
               Create Your First Workflow
             </button>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {workflows.map((workflow) => {
-              const phaseCount = getPhaseCount(workflow.id)
-              return (
-                <div
-                  key={workflow.id}
-                  className="group rounded-xl border border-slate-200 bg-white p-6 transition-all hover:border-emerald-300 hover:shadow-md"
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {workflows.map((workflow) => {
+            const stats = getWorkflowStats(workflow.id)
+            return (
+              <div
+                key={workflow.id}
+                className="rounded-xl overflow-hidden transition-all hover:shadow-md"
+                style={{ background: 'var(--white)', border: '1px solid var(--stone)' }}
+              >
+                {/* Card Header */}
+                <div 
+                  className="px-5 py-4 flex items-start justify-between"
+                  style={{ background: 'var(--gk-charcoal)' }}
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
-                        <GitBranch className="h-5 w-5" />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-white truncate">
+                      {workflow.name}
+                    </h3>
+                    {workflow.description && (
+                      <p 
+                        className="text-sm mt-1 line-clamp-2"
+                        style={{ color: 'var(--stone)' }}
+                      >
+                        {workflow.description}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 ml-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setEditingWorkflow(workflow.id)
+                        setNewName(workflow.name)
+                        setNewDescription(workflow.description || '')
+                      }}
+                      className="p-1.5 rounded hover:bg-white/10 transition-colors"
+                    >
+                      <Edit className="h-4 w-4 text-white" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        deleteWorkflow(workflow.id)
+                      }}
+                      className="p-1.5 rounded hover:bg-white/10 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4 text-white" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Card Body */}
+                <div className="p-5">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div>
+                      <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                        {stats.phases}
                       </div>
-                      <div>
-                        <h3 className="font-semibold text-slate-900">{workflow.name}</h3>
-                        <p className="text-xs text-slate-500">{phaseCount} phases</p>
+                      <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                        Phases
                       </div>
                     </div>
-                    <DropdownMenu.Root>
-                      <DropdownMenu.Trigger asChild>
-                        <button className="p-2 opacity-0 group-hover:opacity-100 hover:bg-slate-100 rounded transition-opacity">
-                          <MoreHorizontal className="h-4 w-4 text-slate-500" />
-                        </button>
-                      </DropdownMenu.Trigger>
-                      <DropdownMenu.Portal>
-                        <DropdownMenu.Content className="min-w-[160px] bg-white rounded-lg shadow-lg border border-slate-200 p-1 z-50">
-                          <DropdownMenu.Item
-                            className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded cursor-pointer outline-none"
-                            onClick={() => {
-                              setNewName(workflow.name)
-                              setNewDescription(workflow.description || '')
-                              setEditingWorkflow(workflow.id)
-                            }}
-                          >
-                            <Edit2 className="h-4 w-4" /> Edit
-                          </DropdownMenu.Item>
-                          <DropdownMenu.Item
-                            className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded cursor-pointer outline-none"
-                            onClick={() => deleteWorkflow(workflow.id)}
-                          >
-                            <Trash2 className="h-4 w-4" /> Delete
-                          </DropdownMenu.Item>
-                        </DropdownMenu.Content>
-                      </DropdownMenu.Portal>
-                    </DropdownMenu.Root>
+                    <div 
+                      className="w-px h-10"
+                      style={{ background: 'var(--stone)' }}
+                    />
+                    <div>
+                      <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                        {stats.steps}
+                      </div>
+                      <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                        Steps
+                      </div>
+                    </div>
                   </div>
-                  
-                  {workflow.description && (
-                    <p className="mt-3 text-sm text-slate-500 line-clamp-2">{workflow.description}</p>
-                  )}
-                  
+
                   <Link
                     href={`/workflows/${workflow.id}`}
-                    className="mt-4 flex items-center gap-2 text-sm font-medium text-emerald-600 hover:text-emerald-700"
+                    className="flex items-center justify-center gap-2 w-full px-4 py-2 rounded-lg font-medium transition-colors"
+                    style={{ 
+                      background: 'var(--mint)', 
+                      color: 'var(--gk-green-dark)' 
+                    }}
                   >
-                    Open workflow
+                    View Workflow
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                 </div>
-              )
-            })}
-            
-            {/* Add Workflow Card */}
-            <button
-              onClick={() => setShowAddWorkflow(true)}
-              className="rounded-xl border-2 border-dashed border-slate-300 bg-white p-6 text-center transition-all hover:border-emerald-400 hover:bg-emerald-50"
-            >
-              <div className="flex flex-col items-center">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100">
-                  <Plus className="h-5 w-5 text-slate-500" />
-                </div>
-                <p className="mt-3 text-sm font-medium text-slate-600">Add Workflow</p>
               </div>
-            </button>
-          </div>
-        )}
-      </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Add Workflow Modal */}
       <Modal
-        open={showAddWorkflow}
+        isOpen={showAddModal}
         onClose={() => {
-          setShowAddWorkflow(false)
+          setShowAddModal(false)
           setNewName('')
           setNewDescription('')
         }}
         title="Add Workflow"
-        description="Workflows show how work moves through your business — like Lead to Project or Client Journey."
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Name
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+              Workflow Name
             </label>
             <input
               type="text"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="e.g., Client Journey, Project Delivery"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              placeholder="e.g., Client Journey, Sales Process, Production"
+              className="w-full px-4 py-2 rounded-lg border"
+              style={{ 
+                borderColor: 'var(--stone)', 
+                background: 'var(--white)',
+                color: 'var(--text-primary)'
+              }}
               autoFocus
+              onKeyDown={(e) => e.key === 'Enter' && handleAddWorkflow()}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
               Description (optional)
             </label>
             <textarea
               value={newDescription}
               onChange={(e) => setNewDescription(e.target.value)}
               placeholder="What does this workflow cover?"
-              rows={2}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              rows={3}
+              className="w-full px-4 py-2 rounded-lg border resize-none"
+              style={{ 
+                borderColor: 'var(--stone)', 
+                background: 'var(--white)',
+                color: 'var(--text-primary)'
+              }}
             />
           </div>
-          <div className="flex justify-end gap-3">
+          <div className="flex justify-end gap-3 pt-2">
             <button
               onClick={() => {
-                setShowAddWorkflow(false)
+                setShowAddModal(false)
                 setNewName('')
                 setNewDescription('')
               }}
-              className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg"
+              className="px-4 py-2 rounded-lg font-medium"
+              style={{ color: 'var(--text-secondary)' }}
             >
               Cancel
             </button>
             <button
               onClick={handleAddWorkflow}
               disabled={!newName.trim()}
-              className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 rounded-lg font-medium text-white disabled:opacity-50"
+              style={{ background: 'var(--gk-green)' }}
             >
-              Create Workflow
+              Add Workflow
             </button>
           </div>
         </div>
@@ -210,7 +262,7 @@ export default function WorkflowsPage() {
 
       {/* Edit Workflow Modal */}
       <Modal
-        open={editingWorkflow !== null}
+        isOpen={!!editingWorkflow}
         onClose={() => {
           setEditingWorkflow(null)
           setNewName('')
@@ -220,43 +272,55 @@ export default function WorkflowsPage() {
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Name
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+              Workflow Name
             </label>
             <input
               type="text"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full px-4 py-2 rounded-lg border"
+              style={{ 
+                borderColor: 'var(--stone)', 
+                background: 'var(--white)',
+                color: 'var(--text-primary)'
+              }}
               autoFocus
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
               Description (optional)
             </label>
             <textarea
               value={newDescription}
               onChange={(e) => setNewDescription(e.target.value)}
-              rows={2}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              rows={3}
+              className="w-full px-4 py-2 rounded-lg border resize-none"
+              style={{ 
+                borderColor: 'var(--stone)', 
+                background: 'var(--white)',
+                color: 'var(--text-primary)'
+              }}
             />
           </div>
-          <div className="flex justify-end gap-3">
+          <div className="flex justify-end gap-3 pt-2">
             <button
               onClick={() => {
                 setEditingWorkflow(null)
                 setNewName('')
                 setNewDescription('')
               }}
-              className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg"
+              className="px-4 py-2 rounded-lg font-medium"
+              style={{ color: 'var(--text-secondary)' }}
             >
               Cancel
             </button>
             <button
               onClick={() => editingWorkflow && handleUpdateWorkflow(editingWorkflow)}
               disabled={!newName.trim()}
-              className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 rounded-lg font-medium text-white disabled:opacity-50"
+              style={{ background: 'var(--gk-green)' }}
             >
               Save Changes
             </button>
