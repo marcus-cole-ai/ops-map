@@ -33,6 +33,7 @@ const resources = [
 
 const tools = [
   { name: 'Job Descriptions', href: '/tools/job-description', icon: FileText },
+  { name: 'Process Docs', href: '/tools/process-docs', icon: FileText },
 ]
 
 export function Sidebar() {
