@@ -13,6 +13,7 @@ import {
   Settings,
   AlertCircle,
 } from 'lucide-react'
+import { GlobalSearch } from '@/components/GlobalSearch'
 
 const navigation = [
   { name: 'Function Chart', href: '/function-chart', icon: LayoutGrid },
@@ -37,6 +38,11 @@ export function Sidebar() {
           </div>
           <span className="text-xl font-bold">OpsMap</span>
         </Link>
+      </div>
+
+      {/* Search */}
+      <div className="px-3 py-3 border-b border-slate-800">
+        <GlobalSearch />
       </div>
 
       {/* Navigation */}
