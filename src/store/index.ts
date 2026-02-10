@@ -144,6 +144,9 @@ interface OpsMapState {
   addCoreActivity: (name: string, description?: string) => CoreActivity
   updateCoreActivity: (id: string, updates: Partial<CoreActivity>) => void
   updateActivityVideo: (id: string, videoUrl: string | null, videoType: 'loom' | 'gdrive' | null) => void
+  updateActivityRoles: (id: string, roleIds: string[]) => void
+  updateActivityPeople: (id: string, ownerIds: string[]) => void
+  updateActivitySoftware: (id: string, softwareIds: string[]) => void
   deleteCoreActivity: (id: string) => void
   setActivityStatus: (id: string, status: Status) => void
   publishActivity: (id: string) => void
@@ -185,6 +188,7 @@ interface OpsMapState {
   linkActivityToStep: (stepId: string, activityId: string) => void
   unlinkActivityFromStep: (stepId: string, activityId: string) => void
   getActivitiesForStep: (stepId: string) => CoreActivity[]
+  getWorkflowsContainingActivity: (activityId: string) => Workflow[]
   
   // People
   people: Person[]
@@ -613,6 +617,41 @@ export const useOpsMapStore = create<OpsMapState>()(
           ),
         })))
       },
+      updateActivityRoles: (id, roleIds) => {
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          coreActivities: ws.coreActivities.map(a =>
+            a.id === id ? {
+              ...a,
+              roleIds: roleIds.length > 0 ? roleIds : undefined,
+              roleId: roleIds[0] || undefined,
+            } : a
+          ),
+        })))
+      },
+      updateActivityPeople: (id, ownerIds) => {
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          coreActivities: ws.coreActivities.map(a =>
+            a.id === id ? {
+              ...a,
+              ownerIds: ownerIds.length > 0 ? ownerIds : undefined,
+              ownerId: ownerIds[0] || undefined,
+            } : a
+          ),
+        })))
+      },
+      updateActivitySoftware: (id, softwareIds) => {
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          coreActivities: ws.coreActivities.map(a =>
+            a.id === id ? {
+              ...a,
+              softwareIds: softwareIds.length > 0 ? softwareIds : undefined,
+            } : a
+          ),
+        })))
+      },
       deleteCoreActivity: (id) => {
         set(state => updateActiveWorkspace(state, ws => ({
           ...ws,
@@ -874,6 +913,20 @@ export const useOpsMapStore = create<OpsMapState>()(
         return links
           .map(l => state.coreActivities.find(a => a.id === l.coreActivityId)!)
           .filter(Boolean)
+      },
+      getWorkflowsContainingActivity: (activityId) => {
+        const state = get()
+        const workflowIds = new Set<string>()
+        state.stepActivities
+          .filter(sa => sa.coreActivityId === activityId)
+          .forEach(sa => {
+            const step = state.steps.find(s => s.id === sa.stepId)
+            if (!step) return
+            const phase = state.phases.find(p => p.id === step.phaseId)
+            if (!phase) return
+            workflowIds.add(phase.workflowId)
+          })
+        return state.workflows.filter(w => workflowIds.has(w.id))
       },
       
       // People
