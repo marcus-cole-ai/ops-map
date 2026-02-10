@@ -3,6 +3,7 @@
 import { useState, use } from 'react'
 import { useOpsMapStore } from '@/store'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { 
   ArrowLeft, 
   Plus, 
@@ -17,6 +18,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge'
 import { StatusDropdown } from '@/components/ui/StatusDropdown'
 import { DraftBanner } from '@/components/ui/DraftBanner'
 import { PublishConfirmModal } from '@/components/modals/PublishConfirmModal'
+import { ActivitySearchModal } from '@/components/modals/ActivitySearchModal'
 import { VideoUrlInput } from '@/components/ui/VideoUrlInput'
 import { VideoEmbed } from '@/components/ui/VideoEmbed'
 import type { CoreActivity, Status } from '@/types'
@@ -40,12 +42,12 @@ export default function WorkflowDetailPage({ params }: PageProps) {
     updateStep,
     deleteStep,
     getActivitiesForStep,
-    coreActivities,
     linkActivityToStep,
     unlinkActivityFromStep,
     people,
     roles,
   } = useOpsMapStore()
+  const router = useRouter()
 
   const workflow = workflows.find((w) => w.id === id)
   const workflowPhases = phases
@@ -729,69 +731,24 @@ export default function WorkflowDetailPage({ params }: PageProps) {
         </div>
       </Modal>
 
-      {/* Link Activity Modal */}
-      <Modal
+      <ActivitySearchModal
         isOpen={!!showLinkActivity}
         onClose={() => setShowLinkActivity(null)}
-        title="Link Core Activity"
-      >
-        <div className="space-y-4">
-          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-            Select a core activity to link to this step.
-          </p>
-          <div className="max-h-64 overflow-y-auto space-y-2">
-            {coreActivities.length === 0 ? (
-              <p className="text-sm italic" style={{ color: 'var(--text-muted)' }}>
-                No core activities created yet. Create activities from the Core Activities page.
-              </p>
-            ) : (
-              coreActivities.map((activity) => {
-                const isLinked = showLinkActivity
-                  ? getActivitiesForStep(showLinkActivity).some((a) => a.id === activity.id)
-                  : false
-                return (
-                  <div
-                    key={activity.id}
-                    className="flex items-center justify-between px-4 py-3 rounded-lg border cursor-pointer transition-colors"
-                    style={{ 
-                      borderColor: isLinked ? 'var(--gk-green)' : 'var(--stone)',
-                      background: isLinked ? 'var(--mint)' : 'var(--white)'
-                    }}
-                    onClick={() => {
-                      if (showLinkActivity) {
-                        if (isLinked) {
-                          unlinkActivityFromStep(showLinkActivity, activity.id)
-                        } else {
-                          linkActivityToStep(showLinkActivity, activity.id)
-                        }
-                      }
-                    }}
-                  >
-                    <span style={{ color: 'var(--text-primary)' }}>{activity.name}</span>
-                    {isLinked && (
-                      <span 
-                        className="text-xs px-2 py-1 rounded"
-                        style={{ background: 'var(--gk-green)', color: 'white' }}
-                      >
-                        Linked
-                      </span>
-                    )}
-                  </div>
-                )
-              })
-            )}
-          </div>
-          <div className="flex justify-end pt-2">
-            <button
-              onClick={() => setShowLinkActivity(null)}
-              className="px-4 py-2 rounded-lg font-medium text-white"
-              style={{ background: 'var(--gk-green)' }}
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      </Modal>
+        linkedActivityIds={showLinkActivity ? getActivitiesForStep(showLinkActivity).map(a => a.id) : []}
+        onLinkActivity={(activity) => {
+          if (!showLinkActivity) return
+          const isLinked = getActivitiesForStep(showLinkActivity).some(a => a.id === activity.id)
+          if (isLinked) {
+            unlinkActivityFromStep(showLinkActivity, activity.id)
+            return
+          }
+          linkActivityToStep(showLinkActivity, activity.id)
+        }}
+        onCreateNewActivity={() => {
+          setShowLinkActivity(null)
+          router.push('/activities')
+        }}
+      />
 
       {/* Activity Detail Modal */}
       <Modal
