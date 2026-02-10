@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useOpsMapStore } from '@/store'
+import Link from 'next/link'
 import { 
   Building2, 
   Download, 
@@ -11,7 +12,10 @@ import {
   FileJson,
   AlertTriangle,
   Check,
-  Sparkles
+  Sparkles,
+  Brain,
+  ArrowRight,
+  User,
 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 
@@ -19,6 +23,9 @@ export default function SettingsPage() {
   const {
     company,
     setCompany,
+    companyProfile,
+    aiSettings,
+    setAISettings,
     clearAllData,
     loadDemoData,
     loadTemplate,
@@ -244,6 +251,151 @@ export default function SettingsPage() {
             >
               Save
             </button>
+          </div>
+        </div>
+
+        {/* Company Profile */}
+        <div 
+          className="rounded-xl p-6"
+          style={{ background: 'var(--white)', border: '1px solid var(--stone)' }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div 
+                className="p-2 rounded-lg"
+                style={{ background: 'var(--dusty-blue)' }}
+              >
+                <User className="h-5 w-5" style={{ color: '#3d4f5f' }} />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  Company Profile
+                </h2>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                  Context for AI recommendations
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/settings/profile"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium"
+              style={{ background: 'var(--mint)', color: 'var(--gk-green-dark)' }}
+            >
+              Edit Profile
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+          
+          {companyProfile?.industry || companyProfile?.companyType ? (
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              {companyProfile.industry && (
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Industry:</span>{' '}
+                  <span style={{ color: 'var(--text-primary)' }}>{companyProfile.industry}</span>
+                </div>
+              )}
+              {companyProfile.companyType && (
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Type:</span>{' '}
+                  <span style={{ color: 'var(--text-primary)' }}>{companyProfile.companyType}</span>
+                </div>
+              )}
+              {companyProfile.size && (
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Size:</span>{' '}
+                  <span style={{ color: 'var(--text-primary)' }}>{companyProfile.size}</span>
+                </div>
+              )}
+              {companyProfile.annualRevenue && (
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Revenue:</span>{' '}
+                  <span style={{ color: 'var(--text-primary)' }}>{companyProfile.annualRevenue}</span>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              No profile set up yet. Complete your profile to get better AI recommendations.
+            </p>
+          )}
+        </div>
+
+        {/* AI Settings */}
+        <div 
+          className="rounded-xl p-6"
+          style={{ background: 'var(--white)', border: '1px solid var(--stone)' }}
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <div 
+              className="p-2 rounded-lg"
+              style={{ background: 'var(--sand)' }}
+            >
+              <Brain className="h-5 w-5" style={{ color: '#b8956e' }} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                AI Model
+              </h2>
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                Choose which AI model to use for generation
+              </p>
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <label 
+              className="flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors"
+              style={{ 
+                background: aiSettings?.preferredModel === 'gemini-flash' ? 'var(--mint)' : 'var(--cream-light)',
+                border: aiSettings?.preferredModel === 'gemini-flash' ? '2px solid var(--gk-green)' : '2px solid transparent'
+              }}
+            >
+              <input
+                type="radio"
+                name="aiModel"
+                value="gemini-flash"
+                checked={aiSettings?.preferredModel === 'gemini-flash'}
+                onChange={() => setAISettings({ preferredModel: 'gemini-flash' })}
+                className="sr-only"
+              />
+              <div className="flex-1">
+                <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  Gemini 2.0 Flash
+                </div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Fast, reliable, great for most tasks
+                </div>
+              </div>
+              {aiSettings?.preferredModel === 'gemini-flash' && (
+                <Check className="h-5 w-5" style={{ color: 'var(--gk-green)' }} />
+              )}
+            </label>
+
+            <label 
+              className="flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors opacity-50"
+              style={{ 
+                background: aiSettings?.preferredModel === 'kimi-2.5' ? 'var(--mint)' : 'var(--cream-light)',
+                border: aiSettings?.preferredModel === 'kimi-2.5' ? '2px solid var(--gk-green)' : '2px solid transparent'
+              }}
+            >
+              <input
+                type="radio"
+                name="aiModel"
+                value="kimi-2.5"
+                checked={aiSettings?.preferredModel === 'kimi-2.5'}
+                onChange={() => setAISettings({ preferredModel: 'kimi-2.5' })}
+                className="sr-only"
+                disabled
+              />
+              <div className="flex-1">
+                <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  Kimi 2.5 (Coming Soon)
+                </div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Advanced reasoning via NVIDIA NIM
+                </div>
+              </div>
+            </label>
           </div>
         </div>
 

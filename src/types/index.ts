@@ -6,6 +6,45 @@ export interface Company {
   createdAt: Date
 }
 
+// Company Profile - feeds all AI operations
+export interface CompanyProfile {
+  industry: string  // e.g., "Residential Remodeling", "Commercial Construction"
+  companyType: string  // e.g., "Design-Build", "General Contractor", "Specialty"
+  size: string  // e.g., "1-5 employees", "6-20", "21-50", "51+"
+  annualRevenue: string  // e.g., "$500K-1M", "$1M-5M", "$5M-10M", "$10M+"
+  targetMargin: number  // percentage
+  idealProject: string  // text description
+  serviceArea: string  // geographic
+  specialties: string[]  // array of strings
+  challenges: string  // current pain points
+}
+
+// AI Settings
+export interface AISettings {
+  preferredModel: 'gemini-flash' | 'kimi-2.5'
+}
+
+// Gap Analysis from AI
+export interface GapAnalysis {
+  id: string
+  createdAt: Date
+  gaps: AIGap[]
+}
+
+export interface AIGap {
+  id: string
+  title: string
+  description: string
+  category: 'workflow' | 'function-chart' | 'activity' | 'general'
+  priority: 'critical' | 'important' | 'nice-to-have'
+  recommendation: string
+  suggestedAction?: {
+    type: 'add-workflow' | 'add-phase' | 'add-step' | 'add-function' | 'add-activity'
+    data: Record<string, unknown>
+  }
+  applied: boolean
+}
+
 // Workspace contains all data for a single client/company
 export interface Workspace {
   id: string
@@ -14,6 +53,9 @@ export interface Workspace {
   userId?: string  // Clerk user ID - workspaces are isolated per user
   // Company settings
   company: Company
+  companyProfile?: CompanyProfile  // Feeds AI operations
+  aiSettings?: AISettings  // AI model preferences
+  gapAnalysisHistory?: GapAnalysis[]  // Track previous AI analyses
   // All entity data
   functions: Function[]
   subFunctions: SubFunction[]

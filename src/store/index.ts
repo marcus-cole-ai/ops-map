@@ -2,6 +2,9 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type {
   Company,
+  CompanyProfile,
+  AISettings,
+  GapAnalysis,
   Function,
   SubFunction,
   CoreActivity,
@@ -34,6 +37,24 @@ const FUNCTION_COLORS = [
   '#6366F1', // indigo
 ]
 
+// Default company profile for new workspaces
+const defaultCompanyProfile: CompanyProfile = {
+  industry: '',
+  companyType: '',
+  size: '',
+  annualRevenue: '',
+  targetMargin: 20,
+  idealProject: '',
+  serviceArea: '',
+  specialties: [],
+  challenges: '',
+}
+
+// Default AI settings
+const defaultAISettings: AISettings = {
+  preferredModel: 'gemini-flash',
+}
+
 // Create an empty workspace
 const createEmptyWorkspace = (name: string, userId?: string): Workspace => {
   const id = generateId()
@@ -47,6 +68,9 @@ const createEmptyWorkspace = (name: string, userId?: string): Workspace => {
       name,
       createdAt: new Date(),
     },
+    companyProfile: { ...defaultCompanyProfile },
+    aiSettings: { ...defaultAISettings },
+    gapAnalysisHistory: [],
     functions: [],
     subFunctions: [],
     coreActivities: [],
@@ -83,6 +107,20 @@ interface OpsMapState {
   // Company (operates on active workspace)
   company: Company | null
   setCompany: (company: Company) => void
+  
+  // Company Profile (for AI context)
+  companyProfile: CompanyProfile | null
+  setCompanyProfile: (profile: CompanyProfile) => void
+  updateCompanyProfile: (updates: Partial<CompanyProfile>) => void
+  
+  // AI Settings
+  aiSettings: AISettings | null
+  setAISettings: (settings: AISettings) => void
+  
+  // Gap Analysis History
+  gapAnalysisHistory: GapAnalysis[]
+  addGapAnalysis: (analysis: GapAnalysis) => void
+  markGapApplied: (analysisId: string, gapId: string) => void
   
   // Functions
   functions: Function[]
@@ -181,6 +219,9 @@ const updateActiveWorkspace = (
     workspaces,
     // Sync computed properties
     company: active.company,
+    companyProfile: active.companyProfile || null,
+    aiSettings: active.aiSettings || null,
+    gapAnalysisHistory: active.gapAnalysisHistory || [],
     functions: active.functions,
     subFunctions: active.subFunctions,
     coreActivities: active.coreActivities,
@@ -204,6 +245,9 @@ const getActiveData = (workspaces: Workspace[], activeId: string) => {
     const first = workspaces[0] || createEmptyWorkspace('My Company')
     return {
       company: first.company,
+      companyProfile: first.companyProfile || null,
+      aiSettings: first.aiSettings || null,
+      gapAnalysisHistory: first.gapAnalysisHistory || [],
       functions: first.functions,
       subFunctions: first.subFunctions,
       coreActivities: first.coreActivities,
@@ -220,6 +264,9 @@ const getActiveData = (workspaces: Workspace[], activeId: string) => {
   }
   return {
     company: active.company,
+    companyProfile: active.companyProfile || null,
+    aiSettings: active.aiSettings || null,
+    gapAnalysisHistory: active.gapAnalysisHistory || [],
     functions: active.functions,
     subFunctions: active.subFunctions,
     coreActivities: active.coreActivities,
@@ -320,6 +367,9 @@ export const useOpsMapStore = create<OpsMapState>()(
         set({
           activeWorkspaceId: id,
           company: workspace.company,
+          companyProfile: workspace.companyProfile || defaultCompanyProfile,
+          aiSettings: workspace.aiSettings || defaultAISettings,
+          gapAnalysisHistory: workspace.gapAnalysisHistory || [],
           functions: workspace.functions,
           subFunctions: workspace.subFunctions,
           coreActivities: workspace.coreActivities,
@@ -341,6 +391,57 @@ export const useOpsMapStore = create<OpsMapState>()(
         set(state => updateActiveWorkspace(state, ws => ({
           ...ws,
           company,
+        })))
+      },
+      
+      // Company Profile - for AI context
+      companyProfile: defaultCompanyProfile,
+      setCompanyProfile: (profile) => {
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          companyProfile: profile,
+        })))
+      },
+      updateCompanyProfile: (updates) => {
+        set(state => {
+          const current = state.companyProfile || defaultCompanyProfile
+          return updateActiveWorkspace(state, ws => ({
+            ...ws,
+            companyProfile: { ...current, ...updates },
+          }))
+        })
+      },
+      
+      // AI Settings
+      aiSettings: defaultAISettings,
+      setAISettings: (settings) => {
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          aiSettings: settings,
+        })))
+      },
+      
+      // Gap Analysis History
+      gapAnalysisHistory: [],
+      addGapAnalysis: (analysis) => {
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          gapAnalysisHistory: [...(ws.gapAnalysisHistory || []), analysis],
+        })))
+      },
+      markGapApplied: (analysisId, gapId) => {
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          gapAnalysisHistory: (ws.gapAnalysisHistory || []).map(a =>
+            a.id === analysisId
+              ? {
+                  ...a,
+                  gaps: a.gaps.map(g =>
+                    g.id === gapId ? { ...g, applied: true } : g
+                  ),
+                }
+              : a
+          ),
         })))
       },
       
