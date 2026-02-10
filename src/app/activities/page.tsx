@@ -4,17 +4,24 @@ import { useState } from 'react'
 import { useOpsMapStore } from '@/store'
 import { Plus, Search, Edit, Trash2, User, Briefcase, ChevronRight, X } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
-import type { CoreActivity } from '@/types'
+import { StatusBadge } from '@/components/ui/StatusBadge'
+import { StatusDropdown } from '@/components/ui/StatusDropdown'
+import { DraftBanner } from '@/components/ui/DraftBanner'
+import { PublishConfirmModal } from '@/components/modals/PublishConfirmModal'
+import type { CoreActivity, Status } from '@/types'
 
 export default function ActivitiesPage() {
   const {
-    coreActivities,
     addCoreActivity,
     updateCoreActivity,
     deleteCoreActivity,
+    setActivityStatus,
+    publishActivity,
+    statusFilter,
+    setStatusFilter,
+    filteredActivities: getFilteredActivities,
     people,
     roles,
-    checklistItems,
     addChecklistItem,
     updateChecklistItem,
     deleteChecklistItem,
@@ -25,12 +32,16 @@ export default function ActivitiesPage() {
   const [filterBy, setFilterBy] = useState<'all' | 'assigned' | 'unassigned'>('all')
   const [showAddModal, setShowAddModal] = useState(false)
   const [selectedActivity, setSelectedActivity] = useState<CoreActivity | null>(null)
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false)
+  const [pendingStatus, setPendingStatus] = useState<Status | null>(null)
   const [newName, setNewName] = useState('')
   const [newDescription, setNewDescription] = useState('')
   const [newChecklistItem, setNewChecklistItem] = useState('')
 
+  const statusFilteredActivities = getFilteredActivities()
+
   // Filter activities
-  const filteredActivities = coreActivities.filter((activity) => {
+  const filteredActivities = statusFilteredActivities.filter((activity) => {
     const matchesSearch = activity.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (activity.description?.toLowerCase().includes(searchQuery.toLowerCase()))
     
@@ -79,8 +90,47 @@ export default function ActivitiesPage() {
     return role?.name || null
   }
 
-  const assignedCount = coreActivities.filter(a => a.ownerId || a.roleId).length
-  const unassignedCount = coreActivities.length - assignedCount
+  const assignedCount = statusFilteredActivities.filter(a => a.ownerId || a.roleId).length
+  const unassignedCount = statusFilteredActivities.length - assignedCount
+  const statusOptions = [
+    { label: 'All', value: 'all' as const },
+    { label: 'Gap', value: 'gap' as const },
+    { label: 'Draft', value: 'draft' as const },
+    { label: 'Active', value: 'active' as const },
+    { label: 'Archived', value: 'archived' as const },
+  ]
+
+  const selectedStatusFilter = statusFilter.length === 1
+    ? statusFilter[0]
+    : statusFilter.includes('gap') && statusFilter.includes('draft') && statusFilter.includes('active')
+      ? 'all'
+      : 'all'
+
+  const handleStatusFilterChange = (value: 'all' | Status) => {
+    if (value === 'all') {
+      setStatusFilter(['gap', 'draft', 'active'])
+    } else {
+      setStatusFilter([value])
+    }
+  }
+
+  const getAllowedTransitions = (status: Status): Status[] => {
+    if (status === 'gap') return ['draft', 'archived']
+    if (status === 'draft') return ['active', 'archived']
+    if (status === 'active') return ['draft', 'archived']
+    return ['draft']
+  }
+
+  const handleStatusChange = (status: Status) => {
+    if (!selectedActivity) return
+    if (status === 'active') {
+      setPendingStatus('active')
+      setShowPublishConfirm(true)
+      return
+    }
+    setActivityStatus(selectedActivity.id, status)
+    setSelectedActivity({ ...selectedActivity, status })
+  }
 
   return (
     <div className="flex h-full" style={{ background: 'var(--cream)' }}>
@@ -125,39 +175,58 @@ export default function ActivitiesPage() {
 
         {/* Filters */}
         <div 
-          className="flex-shrink-0 px-4 py-3 flex gap-2"
+          className="flex-shrink-0 px-4 py-3 flex items-center justify-between gap-2"
           style={{ background: 'var(--cream-light)', borderBottom: '1px solid var(--stone)' }}
         >
-          <button
-            onClick={() => setFilterBy('all')}
-            className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+          <div className="flex gap-2">
+            <button
+              onClick={() => setFilterBy('all')}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+              style={{ 
+                background: filterBy === 'all' ? 'var(--gk-green)' : 'transparent',
+                color: filterBy === 'all' ? 'white' : 'var(--text-secondary)'
+              }}
+            >
+              All ({statusFilteredActivities.length})
+            </button>
+            <button
+              onClick={() => setFilterBy('assigned')}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+              style={{ 
+                background: filterBy === 'assigned' ? 'var(--gk-green)' : 'transparent',
+                color: filterBy === 'assigned' ? 'white' : 'var(--text-secondary)'
+              }}
+            >
+              Assigned ({assignedCount})
+            </button>
+            <button
+              onClick={() => setFilterBy('unassigned')}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+              style={{ 
+                background: filterBy === 'unassigned' ? '#c4785a' : 'transparent',
+                color: filterBy === 'unassigned' ? 'white' : 'var(--text-secondary)'
+              }}
+            >
+              Gaps ({unassignedCount})
+            </button>
+          </div>
+          <select
+            value={selectedStatusFilter}
+            onChange={(e) => handleStatusFilterChange(e.target.value as 'all' | Status)}
+            className="rounded-lg border px-2 py-1 text-xs font-semibold uppercase tracking-wide"
             style={{ 
-              background: filterBy === 'all' ? 'var(--gk-green)' : 'transparent',
-              color: filterBy === 'all' ? 'white' : 'var(--text-secondary)'
+              borderColor: 'var(--stone)', 
+              background: 'var(--white)',
+              color: 'var(--text-secondary)'
             }}
+            aria-label="Filter activities by status"
           >
-            All ({coreActivities.length})
-          </button>
-          <button
-            onClick={() => setFilterBy('assigned')}
-            className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
-            style={{ 
-              background: filterBy === 'assigned' ? 'var(--gk-green)' : 'transparent',
-              color: filterBy === 'assigned' ? 'white' : 'var(--text-secondary)'
-            }}
-          >
-            Assigned ({assignedCount})
-          </button>
-          <button
-            onClick={() => setFilterBy('unassigned')}
-            className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
-            style={{ 
-              background: filterBy === 'unassigned' ? '#c4785a' : 'transparent',
-              color: filterBy === 'unassigned' ? 'white' : 'var(--text-secondary)'
-            }}
-          >
-            Gaps ({unassignedCount})
-          </button>
+            {statusOptions.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Activity List */}
@@ -184,6 +253,7 @@ export default function ActivitiesPage() {
                 const roleName = getRoleName(activity.roleId)
                 const isSelected = selectedActivity?.id === activity.id
                 const hasAssignment = ownerName || roleName
+                const isGap = activity.status === 'gap'
 
                 return (
                   <div
@@ -191,18 +261,21 @@ export default function ActivitiesPage() {
                     onClick={() => setSelectedActivity(activity)}
                     className="p-4 rounded-lg cursor-pointer transition-all"
                     style={{ 
-                      background: isSelected ? 'var(--mint)' : 'var(--white)',
-                      border: `1px solid ${isSelected ? 'var(--gk-green)' : 'var(--stone)'}`,
+                      background: isSelected ? 'var(--mint)' : isGap ? 'var(--cream-light)' : 'var(--white)',
+                      border: `1px ${isGap ? 'dashed' : 'solid'} ${isSelected ? 'var(--gk-green)' : 'var(--stone)'}`,
                     }}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <h3 
-                          className="font-medium truncate"
-                          style={{ color: 'var(--text-primary)' }}
-                        >
-                          {activity.name}
-                        </h3>
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 
+                            className="font-medium truncate"
+                            style={{ color: 'var(--text-primary)' }}
+                          >
+                            {activity.name}
+                          </h3>
+                          <StatusBadge status={activity.status} />
+                        </div>
                         {activity.description && (
                           <p 
                             className="text-sm truncate mt-1"
@@ -256,8 +329,16 @@ export default function ActivitiesPage() {
       <div className="flex-1 overflow-y-auto">
         {selectedActivity ? (
           <div className="p-8 max-w-2xl">
+            {selectedActivity.status === 'draft' && (
+              <div className="mb-4">
+                <DraftBanner onPublish={() => {
+                  setPendingStatus('active')
+                  setShowPublishConfirm(true)
+                }} />
+              </div>
+            )}
             {/* Activity Header */}
-            <div className="flex items-start justify-between mb-6">
+            <div className="flex items-start justify-between mb-6 gap-4">
               <div className="flex-1">
                 <input
                   type="text"
@@ -266,6 +347,14 @@ export default function ActivitiesPage() {
                   className="text-2xl font-bold w-full bg-transparent border-none focus:outline-none"
                   style={{ color: 'var(--text-primary)' }}
                 />
+                <div className="mt-3 flex items-center gap-3">
+                  <StatusBadge status={selectedActivity.status} size="md" />
+                  <StatusDropdown
+                    currentStatus={selectedActivity.status}
+                    allowedTransitions={getAllowedTransitions(selectedActivity.status)}
+                    onChange={handleStatusChange}
+                  />
+                </div>
               </div>
               <button
                 onClick={() => {
@@ -417,7 +506,7 @@ export default function ActivitiesPage() {
                   className="block text-xs font-medium mb-1"
                   style={{ color: 'var(--text-muted)' }}
                 >
-                  End State — What does "done" look like?
+                  End State — What does done look like?
                 </label>
                 <input
                   type="text"
@@ -559,6 +648,24 @@ export default function ActivitiesPage() {
           </div>
         )}
       </div>
+
+      <PublishConfirmModal
+        isOpen={showPublishConfirm}
+        entityType="activity"
+        entityName={selectedActivity?.name || 'this activity'}
+        onCancel={() => {
+          setShowPublishConfirm(false)
+          setPendingStatus(null)
+        }}
+        onConfirm={() => {
+          if (selectedActivity && pendingStatus === 'active') {
+            publishActivity(selectedActivity.id)
+            setSelectedActivity({ ...selectedActivity, status: 'active', publishedAt: new Date() })
+          }
+          setShowPublishConfirm(false)
+          setPendingStatus(null)
+        }}
+      />
 
       {/* Add Activity Modal */}
       <Modal

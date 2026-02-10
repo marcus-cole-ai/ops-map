@@ -28,13 +28,25 @@ export default function DashboardPage() {
   } = useOpsMapStore()
 
   // Calculate stats
-  const activitiesWithOwner = coreActivities.filter((a) => a.ownerId).length
-  const activitiesWithRole = coreActivities.filter((a) => a.roleId).length
-  const assignedActivities = coreActivities.filter((a) => a.ownerId || a.roleId).length
-  const unassignedActivities = coreActivities.length - assignedActivities
+  const healthActivities = coreActivities.filter((a) => a.status !== 'archived')
+  const healthWorkflows = workflows.filter((w) => w.status !== 'archived')
+  const activitiesWithOwner = healthActivities.filter((a) => a.ownerId).length
+  const activitiesWithRole = healthActivities.filter((a) => a.roleId).length
+  const assignedActivities = healthActivities.filter((a) => a.ownerId || a.roleId).length
+  const unassignedActivities = healthActivities.length - assignedActivities
+  const workflowStatusCounts = {
+    active: healthWorkflows.filter((w) => w.status === 'active').length,
+    draft: healthWorkflows.filter((w) => w.status === 'draft').length,
+    gap: healthWorkflows.filter((w) => w.status === 'gap').length,
+  }
+  const activityStatusCounts = {
+    active: healthActivities.filter((a) => a.status === 'active').length,
+    draft: healthActivities.filter((a) => a.status === 'draft').length,
+    gap: healthActivities.filter((a) => a.status === 'gap').length,
+  }
   
-  const completionRate = coreActivities.length > 0 
-    ? Math.round((assignedActivities / coreActivities.length) * 100) 
+  const completionRate = healthActivities.length > 0 
+    ? Math.round((assignedActivities / healthActivities.length) * 100) 
     : 0
 
   const stats = [
@@ -95,7 +107,7 @@ export default function DashboardPage() {
               Operations Coverage
             </h2>
             <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-              {assignedActivities} of {coreActivities.length} core activities have an owner or role assigned
+              {assignedActivities} of {healthActivities.length} core activities have an owner or role assigned
             </p>
           </div>
           <div 
@@ -128,6 +140,51 @@ export default function DashboardPage() {
             <ArrowRight className="h-4 w-4" />
           </Link>
         )}
+      </div>
+
+      <div 
+        className="rounded-xl p-6 mb-8"
+        style={{ background: 'var(--white)', border: '1px solid var(--stone)' }}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+              Status Breakdown
+            </h2>
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              {workflowStatusCounts.active} active workflows, {workflowStatusCounts.draft} in draft, {workflowStatusCounts.gap} gaps identified
+            </p>
+          </div>
+          <Link
+            href="/ops-health"
+            className="text-sm font-medium"
+            style={{ color: 'var(--gk-green)' }}
+          >
+            View Ops Health
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="rounded-lg border p-4" style={{ borderColor: 'var(--stone)', background: 'var(--cream-light)' }}>
+            <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+              Workflows
+            </div>
+            <div className="mt-3 flex items-center gap-4 text-sm">
+              <span style={{ color: '#2f855a' }}>{workflowStatusCounts.active} Active</span>
+              <span style={{ color: '#b7791f' }}>{workflowStatusCounts.draft} Draft</span>
+              <span style={{ color: '#718096' }}>{workflowStatusCounts.gap} Gap</span>
+            </div>
+          </div>
+          <div className="rounded-lg border p-4" style={{ borderColor: 'var(--stone)', background: 'var(--cream-light)' }}>
+            <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+              Core Activities
+            </div>
+            <div className="mt-3 flex items-center gap-4 text-sm">
+              <span style={{ color: '#2f855a' }}>{activityStatusCounts.active} Active</span>
+              <span style={{ color: '#b7791f' }}>{activityStatusCounts.draft} Draft</span>
+              <span style={{ color: '#718096' }}>{activityStatusCounts.gap} Gap</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Quick Stats */}

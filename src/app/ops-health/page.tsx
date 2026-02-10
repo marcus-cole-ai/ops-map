@@ -16,13 +16,18 @@ export default function OpsHealthPage() {
     stepActivities,
   } = useOpsMapStore()
 
+  const healthWorkflows = workflows.filter((w) => w.status !== 'archived')
+  const healthFunctions = functions.filter((f) => f.status !== 'archived')
+  const healthSubFunctions = subFunctions.filter((sf) => sf.status !== 'archived')
+  const healthActivities = coreActivities.filter((a) => a.status !== 'archived')
+
   // Activities without owner or role
-  const unassignedActivities = coreActivities.filter(
+  const unassignedActivities = healthActivities.filter(
     (a) => !a.ownerId && !a.roleId
   )
 
   // Sub-functions without activities
-  const subFunctionsWithoutActivities = subFunctions.filter((sf) => {
+  const subFunctionsWithoutActivities = healthSubFunctions.filter((sf) => {
     const links = subFunctionActivities.filter((sfa) => sfa.subFunctionId === sf.id)
     return links.length === 0
   })
@@ -34,12 +39,12 @@ export default function OpsHealthPage() {
   })
 
   // Functions without sub-functions
-  const functionsWithoutSubFunctions = functions.filter((f) => {
-    return !subFunctions.some((sf) => sf.functionId === f.id)
+  const functionsWithoutSubFunctions = healthFunctions.filter((f) => {
+    return !healthSubFunctions.some((sf) => sf.functionId === f.id)
   })
 
   // Workflows without phases
-  const workflowsWithoutPhases = workflows.filter((w) => {
+  const workflowsWithoutPhases = healthWorkflows.filter((w) => {
     return !phases.some((p) => p.workflowId === w.id)
   })
 
@@ -49,10 +54,21 @@ export default function OpsHealthPage() {
   })
 
   // Calculate completion score
-  const totalItems = coreActivities.length + subFunctions.length + steps.length + functions.length + workflows.length + phases.length
+  const totalItems = healthActivities.length + healthSubFunctions.length + steps.length + healthFunctions.length + healthWorkflows.length + phases.length
   const issues = unassignedActivities.length + subFunctionsWithoutActivities.length + stepsWithoutActivities.length + 
     functionsWithoutSubFunctions.length + workflowsWithoutPhases.length + phasesWithoutSteps.length
   const completionScore = totalItems > 0 ? Math.round(((totalItems - issues) / totalItems) * 100) : 100
+
+  const workflowStatusCounts = {
+    active: healthWorkflows.filter((w) => w.status === 'active').length,
+    draft: healthWorkflows.filter((w) => w.status === 'draft').length,
+    gap: healthWorkflows.filter((w) => w.status === 'gap').length,
+  }
+  const activityStatusCounts = {
+    active: healthActivities.filter((a) => a.status === 'active').length,
+    draft: healthActivities.filter((a) => a.status === 'draft').length,
+    gap: healthActivities.filter((a) => a.status === 'gap').length,
+  }
 
   const getParentName = (subFunctionId: string) => {
     const sf = subFunctions.find(s => s.id === subFunctionId)
@@ -74,7 +90,7 @@ export default function OpsHealthPage() {
           </h1>
         </div>
         <p style={{ color: 'var(--text-secondary)' }}>
-          Check how well you're filling in your OpsMap — completeness metrics and coverage stats
+          Check how well you&apos;re filling in your OpsMap — completeness metrics and coverage stats
         </p>
       </div>
 
@@ -115,18 +131,56 @@ export default function OpsHealthPage() {
         </div>
       </div>
 
+      <div 
+        className="rounded-xl p-6 mb-8"
+        style={{ background: 'var(--white)', border: '1px solid var(--stone)' }}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+              Status Breakdown
+            </h2>
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              {workflowStatusCounts.active} active workflows, {workflowStatusCounts.draft} in draft, {workflowStatusCounts.gap} gaps identified
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="rounded-lg border p-4" style={{ borderColor: 'var(--stone)', background: 'var(--cream-light)' }}>
+            <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+              Workflows
+            </div>
+            <div className="mt-3 flex items-center gap-4 text-sm">
+              <span style={{ color: '#2f855a' }}>{workflowStatusCounts.active} Active</span>
+              <span style={{ color: '#b7791f' }}>{workflowStatusCounts.draft} Draft</span>
+              <span style={{ color: '#718096' }}>{workflowStatusCounts.gap} Gap</span>
+            </div>
+          </div>
+          <div className="rounded-lg border p-4" style={{ borderColor: 'var(--stone)', background: 'var(--cream-light)' }}>
+            <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+              Core Activities
+            </div>
+            <div className="mt-3 flex items-center gap-4 text-sm">
+              <span style={{ color: '#2f855a' }}>{activityStatusCounts.active} Active</span>
+              <span style={{ color: '#b7791f' }}>{activityStatusCounts.draft} Draft</span>
+              <span style={{ color: '#718096' }}>{activityStatusCounts.gap} Gap</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Stats Overview */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div className="rounded-lg p-4" style={{ background: 'var(--white)', border: '1px solid var(--stone)' }}>
-          <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{workflows.length}</div>
+          <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{healthWorkflows.length}</div>
           <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Workflows</div>
         </div>
         <div className="rounded-lg p-4" style={{ background: 'var(--white)', border: '1px solid var(--stone)' }}>
-          <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{functions.length}</div>
+          <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{healthFunctions.length}</div>
           <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Functions</div>
         </div>
         <div className="rounded-lg p-4" style={{ background: 'var(--white)', border: '1px solid var(--stone)' }}>
-          <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{coreActivities.length}</div>
+          <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{healthActivities.length}</div>
           <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Activities</div>
         </div>
         <div className="rounded-lg p-4" style={{ background: 'var(--white)', border: '1px solid var(--stone)' }}>

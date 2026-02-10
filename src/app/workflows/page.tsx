@@ -3,12 +3,16 @@
 import { useState } from 'react'
 import { useOpsMapStore } from '@/store'
 import Link from 'next/link'
-import { Plus, GitBranch, ArrowRight, Edit, Trash2, MoreHorizontal } from 'lucide-react'
+import { Plus, GitBranch, ArrowRight, Edit, Trash2 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
+import { StatusBadge } from '@/components/ui/StatusBadge'
+import type { Status } from '@/types'
 
 export default function WorkflowsPage() {
   const {
-    workflows,
+    filteredWorkflows: getFilteredWorkflows,
+    statusFilter,
+    setStatusFilter,
     phases,
     steps,
     addWorkflow,
@@ -20,6 +24,29 @@ export default function WorkflowsPage() {
   const [editingWorkflow, setEditingWorkflow] = useState<string | null>(null)
   const [newName, setNewName] = useState('')
   const [newDescription, setNewDescription] = useState('')
+  const statusFilteredWorkflows = getFilteredWorkflows()
+
+  const statusOptions = [
+    { label: 'All', value: 'all' as const },
+    { label: 'Gap', value: 'gap' as const },
+    { label: 'Draft', value: 'draft' as const },
+    { label: 'Active', value: 'active' as const },
+    { label: 'Archived', value: 'archived' as const },
+  ]
+
+  const selectedStatusFilter = statusFilter.length === 1
+    ? statusFilter[0]
+    : statusFilter.includes('gap') && statusFilter.includes('draft') && statusFilter.includes('active')
+      ? 'all'
+      : 'all'
+
+  const handleStatusFilterChange = (value: 'all' | Status) => {
+    if (value === 'all') {
+      setStatusFilter(['gap', 'draft', 'active'])
+    } else {
+      setStatusFilter([value])
+    }
+  }
 
   const handleAddWorkflow = () => {
     if (!newName.trim()) return
@@ -59,18 +86,37 @@ export default function WorkflowsPage() {
             Document your key processes and procedures
           </p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-white"
-          style={{ background: 'var(--gk-green)' }}
-        >
-          <Plus className="h-4 w-4" />
-          Add Workflow
-        </button>
+        <div className="flex items-center gap-3">
+          <select
+            value={selectedStatusFilter}
+            onChange={(e) => handleStatusFilterChange(e.target.value as 'all' | Status)}
+            className="rounded-lg border px-3 py-2 text-sm font-semibold uppercase tracking-wide"
+            style={{ 
+              borderColor: 'var(--stone)', 
+              background: 'var(--white)',
+              color: 'var(--text-secondary)'
+            }}
+            aria-label="Filter workflows by status"
+          >
+            {statusOptions.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-white"
+            style={{ background: 'var(--gk-green)' }}
+          >
+            <Plus className="h-4 w-4" />
+            Add Workflow
+          </button>
+        </div>
       </div>
 
       {/* Workflows Grid */}
-      {workflows.length === 0 ? (
+      {statusFilteredWorkflows.length === 0 ? (
         <div className="flex items-center justify-center py-20">
           <div className="text-center max-w-md">
             <div 
@@ -96,13 +142,17 @@ export default function WorkflowsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {workflows.map((workflow) => {
+          {statusFilteredWorkflows.map((workflow) => {
             const stats = getWorkflowStats(workflow.id)
+            const isGap = workflow.status === 'gap'
             return (
               <div
                 key={workflow.id}
                 className="rounded-xl overflow-hidden transition-all hover:shadow-md"
-                style={{ background: 'var(--white)', border: '1px solid var(--stone)' }}
+                style={{ 
+                  background: isGap ? 'var(--cream-light)' : 'var(--white)', 
+                  border: `1px ${isGap ? 'dashed' : 'solid'} var(--stone)` 
+                }}
               >
                 {/* Card Header */}
                 <div 
@@ -110,9 +160,12 @@ export default function WorkflowsPage() {
                   style={{ background: 'var(--gk-charcoal)' }}
                 >
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-white truncate">
-                      {workflow.name}
-                    </h3>
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="font-semibold text-white truncate">
+                        {workflow.name}
+                      </h3>
+                      <StatusBadge status={workflow.status} />
+                    </div>
                     {workflow.description && (
                       <p 
                         className="text-sm mt-1 line-clamp-2"

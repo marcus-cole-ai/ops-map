@@ -2,9 +2,12 @@
 
 import { useState } from 'react'
 import { useOpsMapStore } from '@/store'
-import { Plus, ChevronDown, ChevronRight, MoreHorizontal, Edit, Trash2, Link as LinkIcon } from 'lucide-react'
+import { Plus, ChevronDown, ChevronRight, Edit, Trash2, Link as LinkIcon } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
-import type { CoreActivity } from '@/types'
+import { StatusBadge } from '@/components/ui/StatusBadge'
+import { StatusDropdown } from '@/components/ui/StatusDropdown'
+import { PublishConfirmModal } from '@/components/modals/PublishConfirmModal'
+import type { CoreActivity, Status } from '@/types'
 
 // Function colors following GrowthKits palette
 const FUNCTION_COLORS = [
@@ -28,8 +31,12 @@ export default function FunctionChartPage() {
     addSubFunction,
     updateSubFunction,
     deleteSubFunction,
+    setFunctionStatus,
+    setSubFunctionStatus,
     getActivitiesForSubFunction,
     coreActivities,
+    statusFilter,
+    setStatusFilter,
     linkActivityToSubFunction,
     unlinkActivityFromSubFunction,
   } = useOpsMapStore()
@@ -43,8 +50,11 @@ export default function FunctionChartPage() {
   const [editingSubFunction, setEditingSubFunction] = useState<string | null>(null)
   const [showActivityDetail, setShowActivityDetail] = useState<CoreActivity | null>(null)
   const [showLinkActivity, setShowLinkActivity] = useState<string | null>(null)
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false)
+  const [pendingPublish, setPendingPublish] = useState<{ type: 'function' | 'sub-function'; id: string; name: string } | null>(null)
 
-  const sortedFunctions = [...functions].sort((a, b) => a.orderIndex - b.orderIndex)
+  const statusFilteredFunctions = functions.filter(f => statusFilter.includes(f.status))
+  const sortedFunctions = [...statusFilteredFunctions].sort((a, b) => a.orderIndex - b.orderIndex)
 
   const toggleSubFunction = (id: string) => {
     const newExpanded = new Set(expandedSubFunctions)
@@ -91,8 +101,55 @@ export default function FunctionChartPage() {
 
   const getSubFunctionsForFunction = (functionId: string) => {
     return subFunctions
-      .filter((sf) => sf.functionId === functionId)
+      .filter((sf) => sf.functionId === functionId && statusFilter.includes(sf.status))
       .sort((a, b) => a.orderIndex - b.orderIndex)
+  }
+
+  const getAllowedTransitions = (status: Status): Status[] => {
+    if (status === 'gap') return ['draft', 'archived']
+    if (status === 'draft') return ['active', 'archived']
+    if (status === 'active') return ['draft', 'archived']
+    return ['draft']
+  }
+
+  const statusOptions = [
+    { label: 'All', value: 'all' as const },
+    { label: 'Gap', value: 'gap' as const },
+    { label: 'Draft', value: 'draft' as const },
+    { label: 'Active', value: 'active' as const },
+    { label: 'Archived', value: 'archived' as const },
+  ]
+
+  const selectedStatusFilter = statusFilter.length === 1
+    ? statusFilter[0]
+    : statusFilter.includes('gap') && statusFilter.includes('draft') && statusFilter.includes('active')
+      ? 'all'
+      : 'all'
+
+  const handleStatusFilterChange = (value: 'all' | Status) => {
+    if (value === 'all') {
+      setStatusFilter(['gap', 'draft', 'active'])
+    } else {
+      setStatusFilter([value])
+    }
+  }
+
+  const handleFunctionStatusChange = (funcId: string, name: string, status: Status) => {
+    if (status === 'active') {
+      setPendingPublish({ type: 'function', id: funcId, name })
+      setShowPublishConfirm(true)
+      return
+    }
+    setFunctionStatus(funcId, status)
+  }
+
+  const handleSubFunctionStatusChange = (subFunctionId: string, name: string, status: Status) => {
+    if (status === 'active') {
+      setPendingPublish({ type: 'sub-function', id: subFunctionId, name })
+      setShowPublishConfirm(true)
+      return
+    }
+    setSubFunctionStatus(subFunctionId, status)
   }
 
   return (
@@ -106,14 +163,33 @@ export default function FunctionChartPage() {
               Your organizational structure • Scroll horizontally to view all functions
             </p>
           </div>
-          <button
-            onClick={() => setShowAddFunction(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-white transition-colors"
-            style={{ background: 'var(--gk-green)' }}
-          >
-            <Plus className="h-4 w-4" />
-            Add Function
-          </button>
+          <div className="flex items-center gap-3">
+            <select
+              value={selectedStatusFilter}
+              onChange={(e) => handleStatusFilterChange(e.target.value as 'all' | Status)}
+              className="rounded-lg border px-3 py-2 text-sm font-semibold uppercase tracking-wide"
+              style={{ 
+                borderColor: 'rgba(255,255,255,0.3)', 
+                background: 'rgba(255,255,255,0.1)',
+                color: 'white'
+              }}
+              aria-label="Filter function chart by status"
+            >
+              {statusOptions.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => setShowAddFunction(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-white transition-colors"
+              style={{ background: 'var(--gk-green)' }}
+            >
+              <Plus className="h-4 w-4" />
+              Add Function
+            </button>
+          </div>
         </div>
         
         {/* Scroll hint */}
@@ -156,6 +232,7 @@ export default function FunctionChartPage() {
             {sortedFunctions.map((func, index) => {
               const funcSubFunctions = getSubFunctionsForFunction(func.id)
               const color = func.color || FUNCTION_COLORS[index % FUNCTION_COLORS.length]
+              const isGap = func.status === 'gap'
               
               return (
                 <div 
@@ -166,11 +243,19 @@ export default function FunctionChartPage() {
                   {/* Function Header */}
                   <div 
                     className="rounded-t-2xl px-5 py-4 text-white"
-                    style={{ background: color }}
+                    style={{ background: color, border: isGap ? '2px dashed rgba(255,255,255,0.5)' : 'none' }}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <h3 className="text-lg font-semibold">{func.name}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-lg font-semibold">{func.name}</h3>
+                        <StatusBadge status={func.status} />
+                      </div>
                       <div className="flex items-center gap-1">
+                        <StatusDropdown
+                          currentStatus={func.status}
+                          allowedTransitions={getAllowedTransitions(func.status)}
+                          onChange={(status) => handleFunctionStatusChange(func.id, func.name, status)}
+                        />
                         <button
                           onClick={() => {
                             setEditingFunction(func.id)
@@ -197,21 +282,22 @@ export default function FunctionChartPage() {
                     className="flex-1 rounded-b-2xl p-3 overflow-y-auto"
                     style={{ 
                       background: 'var(--white)', 
-                      border: '1px solid var(--stone)',
+                      border: `1px ${isGap ? 'dashed' : 'solid'} var(--stone)`,
                       borderTop: 'none',
                       minHeight: 0 
                     }}
                   >
                     {funcSubFunctions.map((subFunc, sfIndex) => {
                       const isExpanded = expandedSubFunctions.has(subFunc.id)
-                      const activities = getActivitiesForSubFunction(subFunc.id)
+                      const activities = getActivitiesForSubFunction(subFunc.id).filter(a => statusFilter.includes(a.status))
+                      const isGap = subFunc.status === 'gap'
                       
                       return (
                         <div 
                           key={subFunc.id}
                           className="mb-2 rounded-xl overflow-hidden"
                           style={{ 
-                            border: '1px solid var(--stone)',
+                            border: `1px ${isGap ? 'dashed' : 'solid'} var(--stone)`,
                             background: isExpanded ? 'var(--cream-light)' : 'var(--cream)'
                           }}
                         >
@@ -227,12 +313,20 @@ export default function FunctionChartPage() {
                             >
                               {sfIndex + 1}
                             </span>
-                            <span 
-                              className="flex-1 text-sm font-medium"
-                              style={{ color: 'var(--text-primary)' }}
-                            >
-                              {subFunc.name}
-                            </span>
+                            <div className="flex-1 flex items-center gap-2">
+                              <span 
+                                className="text-sm font-medium"
+                                style={{ color: 'var(--text-primary)' }}
+                              >
+                                {subFunc.name}
+                              </span>
+                              <StatusBadge status={subFunc.status} />
+                            </div>
+                            <StatusDropdown
+                              currentStatus={subFunc.status}
+                              allowedTransitions={getAllowedTransitions(subFunc.status)}
+                              onChange={(status) => handleSubFunctionStatusChange(subFunc.id, subFunc.name, status)}
+                            />
                             <div className="flex items-center gap-1">
                               <span 
                                 className="text-xs px-2 py-0.5 rounded"
@@ -276,11 +370,15 @@ export default function FunctionChartPage() {
                                   activities.map((activity) => (
                                     <div
                                       key={activity.id}
-                                      className="activity-item cursor-pointer hover:border-l-4"
-                                      style={{ borderLeftColor: color }}
+                                      className="activity-item cursor-pointer hover:border-l-4 flex items-center justify-between gap-2"
+                                      style={{ 
+                                        borderLeftColor: color,
+                                        borderStyle: activity.status === 'gap' ? 'dashed' : 'solid'
+                                      }}
                                       onClick={() => setShowActivityDetail(activity)}
                                     >
-                                      {activity.name}
+                                      <span>{activity.name}</span>
+                                      <StatusBadge status={activity.status} />
                                     </div>
                                   ))
                                 )}
@@ -653,12 +751,12 @@ export default function FunctionChartPage() {
             Select a core activity to link to this sub-function.
           </p>
           <div className="max-h-64 overflow-y-auto space-y-2">
-            {coreActivities.length === 0 ? (
+            {coreActivities.filter(a => statusFilter.includes(a.status)).length === 0 ? (
               <p className="text-sm italic" style={{ color: 'var(--text-muted)' }}>
                 No core activities created yet. Create activities from the Core Activities page.
               </p>
             ) : (
-              coreActivities.map((activity) => {
+              coreActivities.filter(a => statusFilter.includes(a.status)).map((activity) => {
                 const isLinked = showLinkActivity
                   ? getActivitiesForSubFunction(showLinkActivity).some((a) => a.id === activity.id)
                   : false
@@ -680,7 +778,10 @@ export default function FunctionChartPage() {
                       }
                     }}
                   >
-                    <span style={{ color: 'var(--text-primary)' }}>{activity.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span style={{ color: 'var(--text-primary)' }}>{activity.name}</span>
+                      <StatusBadge status={activity.status} />
+                    </div>
                     {isLinked && (
                       <span 
                         className="text-xs px-2 py-1 rounded"
@@ -742,6 +843,27 @@ export default function FunctionChartPage() {
           </div>
         )}
       </Modal>
+
+      <PublishConfirmModal
+        isOpen={showPublishConfirm}
+        entityType={pendingPublish?.type === 'sub-function' ? 'sub-function' : 'function'}
+        entityName={pendingPublish?.name || 'this item'}
+        onCancel={() => {
+          setShowPublishConfirm(false)
+          setPendingPublish(null)
+        }}
+        onConfirm={() => {
+          if (pendingPublish) {
+            if (pendingPublish.type === 'function') {
+              setFunctionStatus(pendingPublish.id, 'active')
+            } else {
+              setSubFunctionStatus(pendingPublish.id, 'active')
+            }
+          }
+          setShowPublishConfirm(false)
+          setPendingPublish(null)
+        }}
+      />
     </div>
   )
 }

@@ -2,7 +2,6 @@
 
 import { useState, use } from 'react'
 import { useOpsMapStore } from '@/store'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { 
   ArrowLeft, 
@@ -11,15 +10,14 @@ import {
   Trash2, 
   ChevronDown, 
   ChevronRight,
-  Link as LinkIcon,
-  Check,
-  HelpCircle,
-  Clock,
-  ArrowRight,
-  Users
+  Link as LinkIcon
 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
-import type { CoreActivity } from '@/types'
+import { StatusBadge } from '@/components/ui/StatusBadge'
+import { StatusDropdown } from '@/components/ui/StatusDropdown'
+import { DraftBanner } from '@/components/ui/DraftBanner'
+import { PublishConfirmModal } from '@/components/modals/PublishConfirmModal'
+import type { CoreActivity, Status } from '@/types'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -27,11 +25,12 @@ interface PageProps {
 
 export default function WorkflowDetailPage({ params }: PageProps) {
   const { id } = use(params)
-  const router = useRouter()
   const {
     workflows,
     phases,
     steps,
+    setWorkflowStatus,
+    publishWorkflow,
     addPhase,
     updatePhase,
     deletePhase,
@@ -58,6 +57,8 @@ export default function WorkflowDetailPage({ params }: PageProps) {
   const [editingStep, setEditingStep] = useState<string | null>(null)
   const [showLinkActivity, setShowLinkActivity] = useState<string | null>(null)
   const [showActivityDetail, setShowActivityDetail] = useState<CoreActivity | null>(null)
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false)
+  const [pendingStatus, setPendingStatus] = useState<Status | null>(null)
   const [newName, setNewName] = useState('')
   const [newDescription, setNewDescription] = useState('')
 
@@ -132,6 +133,22 @@ export default function WorkflowDetailPage({ params }: PageProps) {
     return { hasOwner, hasRole, complete: hasOwner || hasRole }
   }
 
+  const getAllowedTransitions = (status: Status): Status[] => {
+    if (status === 'gap') return ['draft', 'archived']
+    if (status === 'draft') return ['active', 'archived']
+    if (status === 'active') return ['draft', 'archived']
+    return ['draft']
+  }
+
+  const handleStatusChange = (status: Status) => {
+    if (status === 'active') {
+      setPendingStatus('active')
+      setShowPublishConfirm(true)
+      return
+    }
+    setWorkflowStatus(workflow.id, status)
+  }
+
   return (
     <div className="flex flex-col min-h-full" style={{ background: 'var(--cream)' }}>
       {/* Header */}
@@ -144,13 +161,21 @@ export default function WorkflowDetailPage({ params }: PageProps) {
             <ArrowLeft className="h-5 w-5 text-white" />
           </Link>
           <div className="flex-1">
-            <h1 className="text-2xl font-bold text-white">{workflow.name}</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-white">{workflow.name}</h1>
+              <StatusBadge status={workflow.status} size="md" />
+            </div>
             {workflow.description && (
               <p className="text-sm mt-1" style={{ color: 'var(--gk-green-light)' }}>
                 {workflow.description}
               </p>
             )}
           </div>
+          <StatusDropdown
+            currentStatus={workflow.status}
+            allowedTransitions={getAllowedTransitions(workflow.status)}
+            onChange={handleStatusChange}
+          />
           <button
             onClick={() => setShowAddPhase(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-white transition-colors"
@@ -164,6 +189,14 @@ export default function WorkflowDetailPage({ params }: PageProps) {
 
       {/* Workflow Content - Vertical Phases */}
       <div className="flex-1 p-8 max-w-4xl mx-auto w-full">
+        {workflow.status === 'draft' && (
+          <div className="mb-6">
+            <DraftBanner onPublish={() => {
+              setPendingStatus('active')
+              setShowPublishConfirm(true)
+            }} />
+          </div>
+        )}
         {workflowPhases.length === 0 ? (
           <div className="flex items-center justify-center py-20">
             <div className="text-center max-w-md">
@@ -804,6 +837,23 @@ export default function WorkflowDetailPage({ params }: PageProps) {
           </div>
         )}
       </Modal>
+
+      <PublishConfirmModal
+        isOpen={showPublishConfirm}
+        entityType="workflow"
+        entityName={workflow.name}
+        onCancel={() => {
+          setShowPublishConfirm(false)
+          setPendingStatus(null)
+        }}
+        onConfirm={() => {
+          if (pendingStatus === 'active') {
+            publishWorkflow(workflow.id)
+          }
+          setShowPublishConfirm(false)
+          setPendingStatus(null)
+        }}
+      />
     </div>
   )
 }
