@@ -143,6 +143,7 @@ interface OpsMapState {
   coreActivities: CoreActivity[]
   addCoreActivity: (name: string, description?: string) => CoreActivity
   updateCoreActivity: (id: string, updates: Partial<CoreActivity>) => void
+  updateActivityVideo: (id: string, videoUrl: string | null, videoType: 'loom' | 'gdrive' | null) => void
   deleteCoreActivity: (id: string) => void
   setActivityStatus: (id: string, status: Status) => void
   publishActivity: (id: string) => void
@@ -597,6 +598,18 @@ export const useOpsMapStore = create<OpsMapState>()(
           ...ws,
           coreActivities: ws.coreActivities.map(a =>
             a.id === id ? { ...a, ...updates } : a
+          ),
+        })))
+      },
+      updateActivityVideo: (id, videoUrl, videoType) => {
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          coreActivities: ws.coreActivities.map(a =>
+            a.id === id ? {
+              ...a,
+              videoUrl: videoUrl || undefined,
+              videoType: videoType || undefined,
+            } : a
           ),
         })))
       },
@@ -1148,6 +1161,16 @@ export const useOpsMapStore = create<OpsMapState>()(
           'Pre-Construction': ['Order materials', 'Schedule subcontractors', 'Create project schedule', 'Hold pre-con meeting'],
           'Punch List': ['Create punch list', 'Complete punch items', 'Schedule final walk', 'Obtain sign-off'],
         }
+        const activityVideoMap: Record<string, { url: string; type: 'loom' | 'gdrive' }> = {
+          'Run social media ads': {
+            url: 'https://www.loom.com/share/3f3a1c9d4b1e4e1c8a7d2c9b5a1f2c3d',
+            type: 'loom',
+          },
+          'Schedule discovery call': {
+            url: 'https://drive.google.com/file/d/1a2B3c4D5e6F7g8H9i0JkLmNoPqRstuV/view',
+            type: 'gdrive',
+          },
+        }
 
         Object.entries(activitiesData).forEach(([subFuncName, activities]) => {
           const subFuncId = subFunctionMap[subFuncName]
@@ -1156,6 +1179,10 @@ export const useOpsMapStore = create<OpsMapState>()(
               const activity = get().addCoreActivity(actName)
               const status = subStatusCycle[(actIndex + activities.length) % subStatusCycle.length]
               get().updateCoreActivity(activity.id, { status })
+              const video = activityVideoMap[actName]
+              if (video) {
+                get().updateActivityVideo(activity.id, video.url, video.type)
+              }
               get().linkActivityToSubFunction(subFuncId, activity.id)
             })
           }

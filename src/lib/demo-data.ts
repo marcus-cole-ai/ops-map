@@ -58,13 +58,13 @@ export const DEMO_DATA = {
   },
   activities: {
     'Lead Generation': [
-      { name: 'Run social media ads', status: 'active' },
+      { name: 'Run social media ads', status: 'active', videoUrl: 'https://www.loom.com/share/3f3a1c9d4b1e4e1c8a7d2c9b5a1f2c3d', videoType: 'loom' },
       { name: 'Post to Houzz', status: 'draft' },
       { name: 'Send email newsletter', status: 'draft' },
       { name: 'Host open house', status: 'gap' },
     ],
     'Discovery': [
-      { name: 'Schedule discovery call', status: 'active' },
+      { name: 'Schedule discovery call', status: 'active', videoUrl: 'https://drive.google.com/file/d/1a2B3c4D5e6F7g8H9i0JkLmNoPqRstuV/view', videoType: 'gdrive' },
       { name: 'Conduct site visit', status: 'draft' },
       { name: 'Document client requirements', status: 'draft' },
       { name: 'Review budget expectations', status: 'gap' },

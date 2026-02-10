@@ -100,6 +100,8 @@ export interface CoreActivity {
   ownerId?: string
   roleId?: string
   notes?: string
+  videoUrl?: string
+  videoType?: 'loom' | 'gdrive'
   status: Status
   publishedAt?: Date
   // Checklist metadata (checklists live at activity level)
@@ -137,6 +139,8 @@ export interface Step {
   name: string
   orderIndex: number
   sop?: string  // SOP documentation lives at step level
+  sopVideoUrl?: string
+  sopVideoType?: 'loom' | 'gdrive'
 }
 
 export interface StepActivity {
