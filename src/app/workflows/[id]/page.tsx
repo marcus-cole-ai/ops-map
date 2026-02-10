@@ -17,6 +17,8 @@ import { StatusBadge } from '@/components/ui/StatusBadge'
 import { StatusDropdown } from '@/components/ui/StatusDropdown'
 import { DraftBanner } from '@/components/ui/DraftBanner'
 import { PublishConfirmModal } from '@/components/modals/PublishConfirmModal'
+import { VideoUrlInput } from '@/components/ui/VideoUrlInput'
+import { VideoEmbed } from '@/components/ui/VideoEmbed'
 import type { CoreActivity, Status } from '@/types'
 
 interface PageProps {
@@ -386,6 +388,33 @@ export default function WorkflowDetailPage({ params }: PageProps) {
                                           color: 'var(--text-primary)'
                                         }}
                                       />
+                                    </div>
+
+                                    {/* SOP Video */}
+                                    <div 
+                                      className="mt-3 pt-3"
+                                      style={{ borderTop: '1px solid var(--stone)' }}
+                                      data-export-exclude="video"
+                                    >
+                                      <label 
+                                        className="block text-xs font-medium mb-1"
+                                        style={{ color: 'var(--text-muted)' }}
+                                      >
+                                        Training Video
+                                      </label>
+                                      <VideoUrlInput
+                                        value={step.sopVideoUrl}
+                                        onChange={(url, platform) => {
+                                          updateStep(step.id, {
+                                            sopVideoUrl: url || undefined,
+                                            sopVideoType: platform || undefined,
+                                          })
+                                        }}
+                                        helperText="Paste a Loom or Google Drive video link"
+                                      />
+                                      <div className="mt-3">
+                                        <VideoEmbed url={step.sopVideoUrl} videoType={step.sopVideoType} />
+                                      </div>
                                     </div>
 
                                     {/* Step Actions */}

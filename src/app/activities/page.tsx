@@ -1,19 +1,26 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useOpsMapStore } from '@/store'
-import { Plus, Search, Edit, Trash2, User, Briefcase, ChevronRight, X } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, User, Briefcase, ChevronRight, PlayCircle } from 'lucide-react'
+import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Modal } from '@/components/ui/Modal'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { StatusDropdown } from '@/components/ui/StatusDropdown'
 import { DraftBanner } from '@/components/ui/DraftBanner'
 import { PublishConfirmModal } from '@/components/modals/PublishConfirmModal'
+import { ChecklistPasteInput } from '@/components/ui/ChecklistPasteInput'
+import { ChecklistItemRow } from '@/components/ui/ChecklistItemRow'
+import { VideoUrlInput } from '@/components/ui/VideoUrlInput'
+import { VideoEmbed } from '@/components/ui/VideoEmbed'
 import type { CoreActivity, Status } from '@/types'
 
 export default function ActivitiesPage() {
   const {
     addCoreActivity,
     updateCoreActivity,
+    updateActivityVideo,
     deleteCoreActivity,
     setActivityStatus,
     publishActivity,
@@ -25,6 +32,7 @@ export default function ActivitiesPage() {
     addChecklistItem,
     updateChecklistItem,
     deleteChecklistItem,
+    reorderChecklistItems,
     getChecklistForActivity,
   } = useOpsMapStore()
 
@@ -36,7 +44,6 @@ export default function ActivitiesPage() {
   const [pendingStatus, setPendingStatus] = useState<Status | null>(null)
   const [newName, setNewName] = useState('')
   const [newDescription, setNewDescription] = useState('')
-  const [newChecklistItem, setNewChecklistItem] = useState('')
 
   const statusFilteredActivities = getFilteredActivities()
 
@@ -72,10 +79,9 @@ export default function ActivitiesPage() {
     }
   }
 
-  const handleAddChecklistItem = () => {
-    if (!newChecklistItem.trim() || !selectedActivity) return
-    addChecklistItem(selectedActivity.id, newChecklistItem.trim())
-    setNewChecklistItem('')
+  const handleAddChecklistItems = (items: string[]) => {
+    if (!selectedActivity || items.length === 0) return
+    items.forEach((item) => addChecklistItem(selectedActivity.id, item))
   }
 
   const getOwnerName = (ownerId?: string) => {
@@ -119,6 +125,26 @@ export default function ActivitiesPage() {
     if (status === 'draft') return ['active', 'archived']
     if (status === 'active') return ['draft', 'archived']
     return ['draft']
+  }
+
+  const checklistItems = useMemo(() => {
+    if (!selectedActivity) return []
+    return getChecklistForActivity(selectedActivity.id)
+  }, [getChecklistForActivity, selectedActivity])
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+  )
+
+  const handleChecklistDragEnd = (event: DragEndEvent) => {
+    if (!selectedActivity || !event.over) return
+    if (event.active.id === event.over.id) return
+    const ids = checklistItems.map((item) => item.id)
+    const oldIndex = ids.indexOf(event.active.id as string)
+    const newIndex = ids.indexOf(event.over.id as string)
+    if (oldIndex === -1 || newIndex === -1) return
+    const newOrder = arrayMove(ids, oldIndex, newIndex)
+    reorderChecklistItems(selectedActivity.id, newOrder)
   }
 
   const handleStatusChange = (status: Status) => {
@@ -274,7 +300,18 @@ export default function ActivitiesPage() {
                           >
                             {activity.name}
                           </h3>
-                          <StatusBadge status={activity.status} />
+                          <div className="flex items-center gap-2">
+                            {activity.videoUrl && (
+                              <span
+                                className="inline-flex items-center justify-center h-6 w-6 rounded-full"
+                                title="Training video attached"
+                                style={{ background: 'var(--mint)', color: 'var(--gk-green-dark)' }}
+                              >
+                                <PlayCircle className="h-4 w-4" />
+                              </span>
+                            )}
+                            <StatusBadge status={activity.status} />
+                          </div>
                         </div>
                         {activity.description && (
                           <p 
@@ -466,6 +503,34 @@ export default function ActivitiesPage() {
               />
             </div>
 
+            {/* Training Video */}
+            <div className="mb-6" data-export-exclude="video">
+              <label 
+                className="block text-xs font-semibold uppercase tracking-wider mb-2"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                Training Video
+              </label>
+              <VideoUrlInput
+                value={selectedActivity.videoUrl}
+                onChange={(url, platform) => {
+                  updateActivityVideo(selectedActivity.id, url, platform)
+                  setSelectedActivity({
+                    ...selectedActivity,
+                    videoUrl: url || undefined,
+                    videoType: platform || undefined,
+                  })
+                }}
+                helperText="Paste a Loom or Google Drive video link"
+              />
+              <div className="mt-3">
+                <VideoEmbed
+                  url={selectedActivity.videoUrl}
+                  videoType={selectedActivity.videoType}
+                />
+              </div>
+            </div>
+
             {/* Checklist Section */}
             <div 
               className="rounded-xl border p-5"
@@ -534,7 +599,7 @@ export default function ActivitiesPage() {
                   >
                     Checklist Items
                   </label>
-                  {getChecklistForActivity(selectedActivity.id).length >= 10 && (
+                  {checklistItems.length >= 10 && (
                     <span 
                       className="text-xs px-2 py-1 rounded"
                       style={{ background: 'var(--sand)', color: '#b8923a' }}
@@ -544,7 +609,7 @@ export default function ActivitiesPage() {
                   )}
                 </div>
 
-                {getChecklistForActivity(selectedActivity.id).length === 0 ? (
+                {checklistItems.length === 0 ? (
                   <p 
                     className="text-sm italic mb-3"
                     style={{ color: 'var(--text-muted)' }}
@@ -552,79 +617,42 @@ export default function ActivitiesPage() {
                     No checklist items yet. Keep it to 10 items or fewer.
                   </p>
                 ) : (
-                  <div className="space-y-2 mb-4">
-                    {getChecklistForActivity(selectedActivity.id).map((item) => (
-                      <div 
-                        key={item.id}
-                        className="p-3 rounded-lg"
-                        style={{ background: 'var(--cream-light)' }}
-                      >
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            checked={item.completed}
-                            onChange={(e) => updateChecklistItem(item.id, { completed: e.target.checked })}
-                            className="h-4 w-4 rounded flex-shrink-0"
-                            style={{ accentColor: 'var(--gk-green)' }}
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleChecklistDragEnd}
+                  >
+                    <SortableContext
+                      items={checklistItems.map((item) => item.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div className="space-y-2 mb-4">
+                        {checklistItems.map((item) => (
+                          <ChecklistItemRow
+                            key={item.id}
+                            id={item.id}
+                            text={item.text}
+                            completed={item.completed}
+                            videoUrl={item.videoUrl}
+                            onToggle={(checked) => updateChecklistItem(item.id, { completed: checked })}
+                            onDelete={() => deleteChecklistItem(item.id)}
+                            onUpdateText={(value) => updateChecklistItem(item.id, { text: value })}
+                            onUpdateVideoUrl={(value) => updateChecklistItem(item.id, { videoUrl: value || undefined })}
                           />
-                          <span 
-                            className={`flex-1 text-sm ${item.completed ? 'line-through' : ''}`}
-                            style={{ color: item.completed ? 'var(--text-muted)' : 'var(--text-primary)' }}
-                          >
-                            {item.text}
-                          </span>
-                          <button
-                            onClick={() => deleteChecklistItem(item.id)}
-                            className="p-1 rounded hover:bg-red-100 transition-colors flex-shrink-0"
-                          >
-                            <X className="h-4 w-4" style={{ color: 'var(--text-muted)' }} />
-                          </button>
-                        </div>
-                        {/* Video URL */}
-                        <div className="mt-2 ml-7">
-                          <input
-                            type="url"
-                            value={item.videoUrl || ''}
-                            onChange={(e) => updateChecklistItem(item.id, { videoUrl: e.target.value || undefined })}
-                            placeholder="Video URL (optional)"
-                            className="w-full px-2 py-1 rounded border text-xs"
-                            style={{ 
-                              borderColor: 'var(--stone)', 
-                              background: 'var(--white)',
-                              color: 'var(--text-secondary)'
-                            }}
-                          />
-                        </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    </SortableContext>
+                  </DndContext>
                 )}
                 
                 {/* Add checklist item */}
-                {getChecklistForActivity(selectedActivity.id).length < 10 && (
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={newChecklistItem}
-                      onChange={(e) => setNewChecklistItem(e.target.value)}
-                      placeholder="Add checklist item (plain language, easy to understand)..."
-                      className="flex-1 px-3 py-2 rounded-lg border text-sm"
-                      style={{ 
-                        borderColor: 'var(--stone)', 
-                        background: 'var(--cream)',
-                        color: 'var(--text-primary)'
-                      }}
-                      onKeyDown={(e) => e.key === 'Enter' && handleAddChecklistItem()}
-                    />
-                    <button
-                      onClick={handleAddChecklistItem}
-                      disabled={!newChecklistItem.trim()}
-                      className="px-4 py-2 rounded-lg font-medium text-white disabled:opacity-50"
-                      style={{ background: 'var(--gk-green)' }}
-                    >
-                      Add
-                    </button>
-                  </div>
+                {checklistItems.length < 10 && (
+                  <ChecklistPasteInput
+                    placeholder="Type or paste checklist items..."
+                    onAddItems={handleAddChecklistItems}
+                    maxItems={10}
+                    currentCount={checklistItems.length}
+                  />
                 )}
               </div>
             </div>

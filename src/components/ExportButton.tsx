@@ -21,6 +21,13 @@ export function ExportButton({ targetId, filename, title }: ExportButtonProps) {
     if (!element) return
 
     setExporting(true)
+    const excluded = Array.from(
+      element.querySelectorAll<HTMLElement>('[data-export-exclude=\"video\"]')
+    )
+    const previousDisplay = excluded.map((el) => el.style.display)
+    excluded.forEach((el) => {
+      el.style.display = 'none'
+    })
     try {
       const canvas = await html2canvas(element, {
         backgroundColor: '#ffffff',
@@ -47,6 +54,9 @@ export function ExportButton({ targetId, filename, title }: ExportButtonProps) {
     } catch (error) {
       console.error('Export failed:', error)
     } finally {
+      excluded.forEach((el, index) => {
+        el.style.display = previousDisplay[index]
+      })
       setExporting(false)
       setShowModal(false)
     }

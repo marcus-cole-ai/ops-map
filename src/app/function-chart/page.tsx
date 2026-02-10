@@ -2,11 +2,12 @@
 
 import { useState } from 'react'
 import { useOpsMapStore } from '@/store'
-import { Plus, ChevronDown, ChevronRight, Edit, Trash2, Link as LinkIcon } from 'lucide-react'
+import { Plus, ChevronDown, ChevronRight, Edit, Trash2, Link as LinkIcon, PlayCircle } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { StatusDropdown } from '@/components/ui/StatusDropdown'
 import { PublishConfirmModal } from '@/components/modals/PublishConfirmModal'
+import { VideoEmbed } from '@/components/ui/VideoEmbed'
 import type { CoreActivity, Status } from '@/types'
 
 // Function colors following GrowthKits palette
@@ -377,7 +378,16 @@ export default function FunctionChartPage() {
                                       }}
                                       onClick={() => setShowActivityDetail(activity)}
                                     >
-                                      <span>{activity.name}</span>
+                                      <div className="flex items-center gap-2">
+                                        <span>{activity.name}</span>
+                                        {activity.videoUrl && (
+                                          <PlayCircle
+                                            className="h-4 w-4"
+                                            style={{ color: 'var(--gk-green)' }}
+                                            title="Training video attached"
+                                          />
+                                        )}
+                                      </div>
                                       <StatusBadge status={activity.status} />
                                     </div>
                                   ))
@@ -831,6 +841,12 @@ export default function FunctionChartPage() {
                 <p style={{ color: 'var(--text-secondary)' }}>{showActivityDetail.notes}</p>
               </div>
             )}
+            <div data-export-exclude="video">
+              <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
+                Training Video
+              </label>
+              <VideoEmbed url={showActivityDetail.videoUrl} videoType={showActivityDetail.videoType} />
+            </div>
             <div className="flex justify-end pt-2">
               <button
                 onClick={() => setShowActivityDetail(null)}
