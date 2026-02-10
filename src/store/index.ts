@@ -168,6 +168,10 @@ interface OpsMapState {
   setStatusFilter: (statuses: Status[]) => void
   filteredWorkflows: () => Workflow[]
   filteredActivities: () => CoreActivity[]
+  searchActivities: (
+    query: string,
+    filters?: { functionId?: string; subFunctionId?: string }
+  ) => CoreActivity[]
   
   // Phases
   phases: Phase[]
@@ -790,6 +794,49 @@ export const useOpsMapStore = create<OpsMapState>()(
         const state = get()
         return state.coreActivities.filter(a => state.statusFilter.includes(a.status))
       },
+      searchActivities: (query, filters) => {
+        const state = get()
+        const normalizedQuery = query.trim().toLowerCase()
+        const functionId = filters?.functionId?.trim()
+        const subFunctionId = filters?.subFunctionId?.trim()
+
+        let candidateIds: Set<string> | null = null
+
+        if (subFunctionId) {
+          candidateIds = new Set(
+            state.subFunctionActivities
+              .filter(link => link.subFunctionId === subFunctionId)
+              .map(link => link.coreActivityId)
+          )
+        } else if (functionId) {
+          const subFunctionIds = new Set(
+            state.subFunctions
+              .filter(subFunction => subFunction.functionId === functionId)
+              .map(subFunction => subFunction.id)
+          )
+          candidateIds = new Set(
+            state.subFunctionActivities
+              .filter(link => subFunctionIds.has(link.subFunctionId))
+              .map(link => link.coreActivityId)
+          )
+        }
+
+        const matchesQuery = (activity: CoreActivity) => {
+          if (!normalizedQuery) return true
+          return (
+            activity.name.toLowerCase().includes(normalizedQuery) ||
+            activity.description?.toLowerCase().includes(normalizedQuery) ||
+            false
+          )
+        }
+
+        return state.coreActivities
+          .filter(activity => {
+            if (candidateIds && !candidateIds.has(activity.id)) return false
+            return matchesQuery(activity)
+          })
+          .sort((a, b) => a.name.localeCompare(b.name))
+      },
       
       // Phases
       phases: [],
@@ -1356,8 +1403,26 @@ export const useOpsMapStore = create<OpsMapState>()(
     }),
     {
       name: 'ops-map-storage',
-      version: 3, // Bump version to handle status fields
+      version: 4, // Bump version to handle Step SOP migration cleanup
       migrate: (persistedState: any, version: number) => {
+        if (version < 4) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const normalizeSteps = (items: any[] = []) =>
+            items.map(step => {
+              const { sop: _legacySop, ...rest } = step
+              return rest
+            })
+
+          if (persistedState.workspaces) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            persistedState.workspaces = persistedState.workspaces.map((ws: any) => ({
+              ...ws,
+              steps: normalizeSteps(ws.steps),
+            }))
+          } else {
+            persistedState.steps = normalizeSteps(persistedState.steps)
+          }
+        }
         if (version < 3) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const normalizeStatus = (items: any[] = []) =>

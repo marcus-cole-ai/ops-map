@@ -142,7 +142,6 @@ export interface Step {
   phaseId: string
   name: string
   orderIndex: number
-  sop?: string  // SOP documentation lives at step level
   sopVideoUrl?: string
   sopVideoType?: 'loom' | 'gdrive'
 }
