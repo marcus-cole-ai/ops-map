@@ -1279,13 +1279,15 @@ export const useOpsMapStore = create<OpsMapState>()(
       version: 3, // Bump version to handle status fields
       migrate: (persistedState: any, version: number) => {
         if (version < 3) {
-          const normalizeStatus = <T extends { status?: Status }>(items: T[] = []) =>
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const normalizeStatus = (items: any[] = []) =>
             items.map(item => ({
               ...item,
               status: item.status || 'draft',
             }))
 
-          const normalizePublishedAt = <T extends { publishedAt?: Date }>(items: T[] = []) =>
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const normalizePublishedAt = (items: any[] = []) =>
             items.map(item => ({
               ...item,
               publishedAt: item.publishedAt,
