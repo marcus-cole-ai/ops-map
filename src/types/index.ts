@@ -71,11 +71,14 @@ export interface Workspace {
   checklistItems: ChecklistItem[]
 }
 
+export type Status = 'gap' | 'draft' | 'active' | 'archived'
+
 export interface Function {
   id: string
   companyId: string
   name: string
   description?: string
+  status: Status
   orderIndex: number
   color: string
 }
@@ -85,6 +88,7 @@ export interface SubFunction {
   functionId: string
   name: string
   description?: string
+  status: Status
   orderIndex: number
 }
 
@@ -96,6 +100,8 @@ export interface CoreActivity {
   ownerId?: string
   roleId?: string
   notes?: string
+  status: Status
+  publishedAt?: Date
   // Checklist metadata (checklists live at activity level)
   checklistTrigger?: string    // What causes this checklist to be used
   checklistEndState?: string   // What it looks like when complete
@@ -113,6 +119,8 @@ export interface Workflow {
   companyId: string
   name: string
   description?: string
+  status: Status
+  publishedAt?: Date
   createdAt: Date
 }
 

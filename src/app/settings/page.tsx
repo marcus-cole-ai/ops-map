@@ -118,7 +118,11 @@ export default function SettingsPage() {
         // Functions
         data.functions?.forEach((f: any) => {
           const newFunc = store.addFunction(f.name, f.description)
-          store.updateFunction(newFunc.id, { color: f.color, orderIndex: f.orderIndex })
+          store.updateFunction(newFunc.id, { 
+            color: f.color, 
+            orderIndex: f.orderIndex,
+            status: f.status || 'draft',
+          })
         })
         
         // SubFunctions
@@ -132,7 +136,8 @@ export default function SettingsPage() {
         data.subFunctions?.forEach((sf: any) => {
           const newFuncId = funcMap[sf.functionId]
           if (newFuncId) {
-            store.addSubFunction(newFuncId, sf.name, sf.description)
+            const newSub = store.addSubFunction(newFuncId, sf.name, sf.description)
+            store.updateSubFunction(newSub.id, { status: sf.status || 'draft' })
           }
         })
 
@@ -153,12 +158,14 @@ export default function SettingsPage() {
 
         // Activities
         data.coreActivities?.forEach((a: any) => {
-          store.addCoreActivity(a.name, a.description)
+          const activity = store.addCoreActivity(a.name, a.description)
+          store.updateCoreActivity(activity.id, { status: a.status || 'draft', publishedAt: a.publishedAt })
         })
 
         // Workflows
         data.workflows?.forEach((w: any) => {
-          store.addWorkflow(w.name, w.description)
+          const workflow = store.addWorkflow(w.name, w.description)
+          store.updateWorkflow(workflow.id, { status: w.status || 'draft', publishedAt: w.publishedAt })
         })
 
         setImportSuccess(true)

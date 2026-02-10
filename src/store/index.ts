@@ -5,6 +5,7 @@ import type {
   CompanyProfile,
   AISettings,
   GapAnalysis,
+  Status,
   Function,
   SubFunction,
   CoreActivity,
@@ -128,6 +129,7 @@ interface OpsMapState {
   updateFunction: (id: string, updates: Partial<Function>) => void
   deleteFunction: (id: string) => void
   reorderFunctions: (ids: string[]) => void
+  setFunctionStatus: (id: string, status: Status) => void
   
   // Sub-Functions
   subFunctions: SubFunction[]
@@ -135,12 +137,15 @@ interface OpsMapState {
   updateSubFunction: (id: string, updates: Partial<SubFunction>) => void
   deleteSubFunction: (id: string) => void
   reorderSubFunctions: (functionId: string, ids: string[]) => void
+  setSubFunctionStatus: (id: string, status: Status) => void
   
   // Core Activities
   coreActivities: CoreActivity[]
   addCoreActivity: (name: string, description?: string) => CoreActivity
   updateCoreActivity: (id: string, updates: Partial<CoreActivity>) => void
   deleteCoreActivity: (id: string) => void
+  setActivityStatus: (id: string, status: Status) => void
+  publishActivity: (id: string) => void
   
   // Sub-Function <-> Activity Links
   subFunctionActivities: SubFunctionActivity[]
@@ -153,6 +158,12 @@ interface OpsMapState {
   addWorkflow: (name: string, description?: string) => Workflow
   updateWorkflow: (id: string, updates: Partial<Workflow>) => void
   deleteWorkflow: (id: string) => void
+  setWorkflowStatus: (id: string, status: Status) => void
+  publishWorkflow: (id: string) => void
+  statusFilter: Status[]
+  setStatusFilter: (statuses: Status[]) => void
+  filteredWorkflows: () => Workflow[]
+  filteredActivities: () => CoreActivity[]
   
   // Phases
   phases: Phase[]
@@ -455,6 +466,7 @@ export const useOpsMapStore = create<OpsMapState>()(
           companyId: state.company?.id || '',
           name,
           description,
+          status: 'draft',
           orderIndex: funcs.length,
           color: FUNCTION_COLORS[funcs.length % FUNCTION_COLORS.length],
         }
@@ -497,6 +509,14 @@ export const useOpsMapStore = create<OpsMapState>()(
           })),
         })))
       },
+      setFunctionStatus: (id, status) => {
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          functions: ws.functions.map(f =>
+            f.id === id ? { ...f, status } : f
+          ),
+        })))
+      },
       
       // Sub-Functions
       subFunctions: [],
@@ -508,6 +528,7 @@ export const useOpsMapStore = create<OpsMapState>()(
           functionId,
           name,
           description,
+          status: 'draft',
           orderIndex: subs.length,
         }
         set(state => updateActiveWorkspace(state, ws => ({
@@ -543,6 +564,14 @@ export const useOpsMapStore = create<OpsMapState>()(
           ),
         })))
       },
+      setSubFunctionStatus: (id, status) => {
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          subFunctions: ws.subFunctions.map(sf =>
+            sf.id === id ? { ...sf, status } : sf
+          ),
+        })))
+      },
       
       // Core Activities
       coreActivities: [],
@@ -553,6 +582,8 @@ export const useOpsMapStore = create<OpsMapState>()(
           companyId: state.company?.id || '',
           name,
           description,
+          status: 'draft',
+          publishedAt: undefined,
           createdAt: new Date(),
         }
         set(state => updateActiveWorkspace(state, ws => ({
@@ -581,6 +612,22 @@ export const useOpsMapStore = create<OpsMapState>()(
           ),
           checklistItems: ws.checklistItems.filter(
             ci => ci.coreActivityId !== id
+          ),
+        })))
+      },
+      setActivityStatus: (id, status) => {
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          coreActivities: ws.coreActivities.map(a =>
+            a.id === id ? { ...a, status } : a
+          ),
+        })))
+      },
+      publishActivity: (id) => {
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          coreActivities: ws.coreActivities.map(a =>
+            a.id === id ? { ...a, status: 'active', publishedAt: new Date() } : a
           ),
         })))
       },
@@ -631,6 +678,8 @@ export const useOpsMapStore = create<OpsMapState>()(
           companyId: state.company?.id || '',
           name,
           description,
+          status: 'draft',
+          publishedAt: undefined,
           createdAt: new Date(),
         }
         set(state => updateActiveWorkspace(state, ws => ({
@@ -660,6 +709,34 @@ export const useOpsMapStore = create<OpsMapState>()(
             stepActivities: ws.stepActivities.filter(sa => !stepIds.includes(sa.stepId)),
           }))
         })
+      },
+      setWorkflowStatus: (id, status) => {
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          workflows: ws.workflows.map(w =>
+            w.id === id ? { ...w, status } : w
+          ),
+        })))
+      },
+      publishWorkflow: (id) => {
+        set(state => updateActiveWorkspace(state, ws => ({
+          ...ws,
+          workflows: ws.workflows.map(w =>
+            w.id === id ? { ...w, status: 'active', publishedAt: new Date() } : w
+          ),
+        })))
+      },
+      statusFilter: ['gap', 'draft', 'active'],
+      setStatusFilter: (statuses) => {
+        set({ statusFilter: statuses })
+      },
+      filteredWorkflows: () => {
+        const state = get()
+        return state.workflows.filter(w => state.statusFilter.includes(w.status))
+      },
+      filteredActivities: () => {
+        const state = get()
+        return state.coreActivities.filter(a => state.statusFilter.includes(a.status))
       },
       
       // Phases
@@ -1035,22 +1112,30 @@ export const useOpsMapStore = create<OpsMapState>()(
         softwareData.forEach(s => get().addSoftware(s.name, s.url))
 
         // Add functions and sub-functions
-        const functionsData = [
-          { name: 'Marketing', description: 'Lead generation and brand awareness', color: '#3B82F6', subs: ['Brand Awareness', 'Lead Generation', 'Content Marketing', 'Referral Program'] },
-          { name: 'Sales', description: 'Converting leads to clients', color: '#10B981', subs: ['Lead Qualification', 'Discovery', 'Proposal Delivery', 'Contract Signing'] },
-          { name: 'Design', description: 'Project design and planning', color: '#F59E0B', subs: ['Initial Concepts', 'Design Development', 'Selections', 'Final Plans'] },
-          { name: 'Estimating', description: 'Pricing and proposals', color: '#EF4444', subs: ['Material Takeoff', 'Labor Estimation', 'Vendor Quotes', 'Proposal Building'] },
-          { name: 'Production', description: 'Project execution and delivery', color: '#8B5CF6', subs: ['Pre-Construction', 'Rough-In', 'Finishes', 'Punch List'] },
-          { name: 'Finance', description: 'Accounting and cash flow', color: '#EC4899', subs: ['Invoicing', 'Collections', 'Payroll', 'Job Costing'] },
-          { name: 'Administration', description: 'Operations and support', color: '#06B6D4', subs: ['Scheduling', 'Permits', 'Insurance', 'HR'] },
+        const functionsData: Array<{
+          name: string
+          description: string
+          color: string
+          status: Status
+          subs: string[]
+        }> = [
+          { name: 'Marketing', description: 'Lead generation and brand awareness', color: '#3B82F6', status: 'active', subs: ['Brand Awareness', 'Lead Generation', 'Content Marketing', 'Referral Program'] },
+          { name: 'Sales', description: 'Converting leads to clients', color: '#10B981', status: 'active', subs: ['Lead Qualification', 'Discovery', 'Proposal Delivery', 'Contract Signing'] },
+          { name: 'Design', description: 'Project design and planning', color: '#F59E0B', status: 'draft', subs: ['Initial Concepts', 'Design Development', 'Selections', 'Final Plans'] },
+          { name: 'Estimating', description: 'Pricing and proposals', color: '#EF4444', status: 'gap', subs: ['Material Takeoff', 'Labor Estimation', 'Vendor Quotes', 'Proposal Building'] },
+          { name: 'Production', description: 'Project execution and delivery', color: '#8B5CF6', status: 'draft', subs: ['Pre-Construction', 'Rough-In', 'Finishes', 'Punch List'] },
+          { name: 'Finance', description: 'Accounting and cash flow', color: '#EC4899', status: 'active', subs: ['Invoicing', 'Collections', 'Payroll', 'Job Costing'] },
+          { name: 'Administration', description: 'Operations and support', color: '#06B6D4', status: 'gap', subs: ['Scheduling', 'Permits', 'Insurance', 'HR'] },
         ]
 
         const subFunctionMap: Record<string, string> = {}
-        functionsData.forEach(f => {
+        const subStatusCycle: Status[] = ['active', 'draft', 'gap']
+        functionsData.forEach((f, fIndex) => {
           const func = get().addFunction(f.name, f.description)
-          get().updateFunction(func.id, { color: f.color })
-          f.subs.forEach(subName => {
+          get().updateFunction(func.id, { color: f.color, status: f.status })
+          f.subs.forEach((subName, subIndex) => {
             const sub = get().addSubFunction(func.id, subName)
+            get().updateSubFunction(sub.id, { status: subStatusCycle[(fIndex + subIndex) % subStatusCycle.length] })
             subFunctionMap[subName] = sub.id
           })
         })
@@ -1067,8 +1152,10 @@ export const useOpsMapStore = create<OpsMapState>()(
         Object.entries(activitiesData).forEach(([subFuncName, activities]) => {
           const subFuncId = subFunctionMap[subFuncName]
           if (subFuncId) {
-            activities.forEach(actName => {
+            activities.forEach((actName, actIndex) => {
               const activity = get().addCoreActivity(actName)
+              const status = subStatusCycle[(actIndex + activities.length) % subStatusCycle.length]
+              get().updateCoreActivity(activity.id, { status })
               get().linkActivityToSubFunction(subFuncId, activity.id)
             })
           }
@@ -1089,6 +1176,7 @@ export const useOpsMapStore = create<OpsMapState>()(
         }
 
         const workflow = get().addWorkflow(workflowData.name, workflowData.description)
+        get().updateWorkflow(workflow.id, { status: 'active', publishedAt: new Date() })
         workflowData.phases.forEach(phaseData => {
           const phase = get().addPhase(workflow.id, phaseData.name)
           phaseData.steps.forEach(stepName => {
@@ -1109,6 +1197,7 @@ export const useOpsMapStore = create<OpsMapState>()(
         }
 
         const workflow2 = get().addWorkflow(workflow2Data.name, workflow2Data.description)
+        get().updateWorkflow(workflow2.id, { status: 'draft' })
         workflow2Data.phases.forEach(phaseData => {
           const phase = get().addPhase(workflow2.id, phaseData.name)
           phaseData.steps.forEach(stepName => {
@@ -1187,8 +1276,39 @@ export const useOpsMapStore = create<OpsMapState>()(
     }),
     {
       name: 'ops-map-storage',
-      version: 2, // Bump version to handle migration
+      version: 3, // Bump version to handle status fields
       migrate: (persistedState: any, version: number) => {
+        if (version < 3) {
+          const normalizeStatus = <T extends { status?: Status }>(items: T[] = []) =>
+            items.map(item => ({
+              ...item,
+              status: item.status || 'draft',
+            }))
+
+          const normalizePublishedAt = <T extends { publishedAt?: Date }>(items: T[] = []) =>
+            items.map(item => ({
+              ...item,
+              publishedAt: item.publishedAt,
+            }))
+
+          if (persistedState.workspaces) {
+            persistedState.workspaces = persistedState.workspaces.map((ws: Workspace) => ({
+              ...ws,
+              functions: normalizeStatus(ws.functions),
+              subFunctions: normalizeStatus(ws.subFunctions),
+              coreActivities: normalizePublishedAt(normalizeStatus(ws.coreActivities)),
+              workflows: normalizePublishedAt(normalizeStatus(ws.workflows)),
+            }))
+          } else {
+            persistedState.functions = normalizeStatus(persistedState.functions)
+            persistedState.subFunctions = normalizeStatus(persistedState.subFunctions)
+            persistedState.coreActivities = normalizePublishedAt(normalizeStatus(persistedState.coreActivities))
+            persistedState.workflows = normalizePublishedAt(normalizeStatus(persistedState.workflows))
+          }
+          if (!persistedState.statusFilter) {
+            persistedState.statusFilter = ['gap', 'draft', 'active']
+          }
+        }
         if (version < 2) {
           // Migrate from single-workspace to multi-workspace
           const oldState = persistedState as any
