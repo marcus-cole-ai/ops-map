@@ -381,11 +381,12 @@ export default function FunctionChartPage() {
                                       <div className="flex items-center gap-2">
                                         <span>{activity.name}</span>
                                         {activity.videoUrl && (
-                                          <PlayCircle
-                                            className="h-4 w-4"
-                                            style={{ color: 'var(--gk-green)' }}
-                                            title="Training video attached"
-                                          />
+                                          <span title="Training video attached">
+                                            <PlayCircle
+                                              className="h-4 w-4"
+                                              style={{ color: 'var(--gk-green)' }}
+                                            />
+                                          </span>
                                         )}
                                       </div>
                                       <StatusBadge status={activity.status} />
