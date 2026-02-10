@@ -218,6 +218,57 @@ body {
   color: var(--gk-green-dark);
 }
 
+/* Markdown */
+.markdown {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3 {
+  font-weight: 700;
+  margin: 0.6rem 0 0.4rem;
+}
+
+.markdown p {
+  margin: 0.4rem 0;
+}
+
+.markdown ul,
+.markdown ol {
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+}
+
+.markdown ul {
+  list-style: disc;
+}
+
+.markdown ol {
+  list-style: decimal;
+}
+
+.markdown a {
+  color: var(--gk-green-dark);
+  text-decoration: underline;
+}
+
+.markdown code {
+  background: var(--cream);
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
+.markdown pre {
+  background: var(--cream);
+  padding: 0.75rem;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
 /* Horizontal Scroll Hint */
 .scroll-hint {
   color: var(--gk-green-light);
