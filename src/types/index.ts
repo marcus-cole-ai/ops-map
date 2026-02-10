@@ -97,8 +97,12 @@ export interface CoreActivity {
   companyId: string
   name: string
   description?: string
+  fullDescription?: string
   ownerId?: string
+  ownerIds?: string[]
   roleId?: string
+  roleIds?: string[]
+  softwareIds?: string[]
   notes?: string
   videoUrl?: string
   videoType?: 'loom' | 'gdrive'
