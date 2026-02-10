@@ -356,10 +356,20 @@ export default function ActivitiesPage() {
           ) : (
             <div className="space-y-2">
               {filteredActivities.map((activity) => {
-                const ownerName = getOwnerName(activity.ownerId)
-                const roleName = getRoleName(activity.roleId)
+                const ownerIds = getActivityOwnerIds(activity)
+                const roleIds = getActivityRoleIds(activity)
+                const softwareIds = getActivitySoftwareIds(activity)
+                const primaryOwnerName = ownerIds.length > 0 ? getOwnerName(ownerIds[0]) : null
+                const primaryRoleName = roleIds.length > 0 ? getRoleName(roleIds[0]) : null
+                const ownerLabel = primaryOwnerName
+                  ? `${primaryOwnerName}${ownerIds.length > 1 ? ` +${ownerIds.length - 1}` : ''}`
+                  : `${ownerIds.length} people`
+                const roleLabel = primaryRoleName
+                  ? `${primaryRoleName}${roleIds.length > 1 ? ` +${roleIds.length - 1}` : ''}`
+                  : `${roleIds.length} roles`
+                const workflowsCount = getWorkflowsContainingActivity(activity.id).length
                 const isSelected = selectedActivity?.id === activity.id
-                const hasAssignment = ownerName || roleName
+                const hasAssignment = ownerIds.length > 0 || roleIds.length > 0
                 const isGap = activity.status === 'gap'
 
                 return (
@@ -405,22 +415,40 @@ export default function ActivitiesPage() {
                         
                         {/* Tags */}
                         <div className="flex flex-wrap gap-2 mt-2">
-                          {ownerName && (
+                          {ownerIds.length > 0 && (
                             <span 
                               className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded"
                               style={{ background: 'var(--mint)', color: 'var(--gk-green-dark)' }}
                             >
                               <User className="h-3 w-3" />
-                              {ownerName}
+                              {ownerLabel}
                             </span>
                           )}
-                          {roleName && (
+                          {roleIds.length > 0 && (
                             <span 
                               className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded"
                               style={{ background: 'var(--dusty-blue)', color: '#3d4f5f' }}
                             >
                               <Briefcase className="h-3 w-3" />
-                              {roleName}
+                              {roleLabel}
+                            </span>
+                          )}
+                          {softwareIds.length > 0 && (
+                            <span 
+                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded"
+                              style={{ background: 'var(--sand)', color: '#8b6b1e' }}
+                            >
+                              <Monitor className="h-3 w-3" />
+                              {softwareIds.length} software
+                            </span>
+                          )}
+                          {workflowsCount > 0 && (
+                            <span 
+                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded"
+                              style={{ background: 'var(--cream-light)', color: 'var(--text-secondary)' }}
+                            >
+                              <Layers className="h-3 w-3" />
+                              {workflowsCount} workflows
                             </span>
                           )}
                           {!hasAssignment && (
