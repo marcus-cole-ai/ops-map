@@ -35,12 +35,13 @@ const FUNCTION_COLORS = [
 ]
 
 // Create an empty workspace
-const createEmptyWorkspace = (name: string): Workspace => {
+const createEmptyWorkspace = (name: string, userId?: string): Workspace => {
   const id = generateId()
   return {
     id,
     name,
     createdAt: new Date(),
+    userId, // Associate workspace with user
     company: {
       id: generateId(),
       name,
@@ -65,6 +66,7 @@ interface OpsMapState {
   // Workspace management
   workspaces: Workspace[]
   activeWorkspaceId: string
+  currentUserId: string | null  // Clerk user ID
   
   // Workspace actions
   getActiveWorkspace: () => Workspace
@@ -72,6 +74,11 @@ interface OpsMapState {
   renameWorkspace: (id: string, name: string) => void
   deleteWorkspace: (id: string) => void
   switchWorkspace: (id: string) => void
+  
+  // User-scoped workspace actions
+  setCurrentUserId: (userId: string) => void
+  getUserWorkspaces: (userId: string) => Workspace[]
+  createWorkspaceForUser: (name: string, userId: string) => Workspace
   
   // Company (operates on active workspace)
   company: Company | null
@@ -238,6 +245,7 @@ export const useOpsMapStore = create<OpsMapState>()(
       // Workspace management
       workspaces: initialWorkspaces,
       activeWorkspaceId: defaultWorkspace.id,
+      currentUserId: null,
       
       getActiveWorkspace: () => {
         const state = get()
@@ -245,7 +253,26 @@ export const useOpsMapStore = create<OpsMapState>()(
       },
       
       addWorkspace: (name) => {
-        const newWorkspace = createEmptyWorkspace(name)
+        const state = get()
+        const newWorkspace = createEmptyWorkspace(name, state.currentUserId || undefined)
+        set(state => ({
+          workspaces: [...state.workspaces, newWorkspace],
+        }))
+        return newWorkspace
+      },
+      
+      // User-scoped workspace management
+      setCurrentUserId: (userId) => {
+        set({ currentUserId: userId })
+      },
+      
+      getUserWorkspaces: (userId) => {
+        const state = get()
+        return state.workspaces.filter(ws => ws.userId === userId)
+      },
+      
+      createWorkspaceForUser: (name, userId) => {
+        const newWorkspace = createEmptyWorkspace(name, userId)
         set(state => ({
           workspaces: [...state.workspaces, newWorkspace],
         }))

@@ -11,6 +11,7 @@ export interface Workspace {
   id: string
   name: string
   createdAt: Date
+  userId?: string  // Clerk user ID - workspaces are isolated per user
   // Company settings
   company: Company
   // All entity data

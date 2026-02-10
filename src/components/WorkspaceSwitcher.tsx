@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useOpsMapStore } from '@/store'
 import { 
   Building2, 
@@ -15,14 +15,21 @@ import { Modal } from '@/components/ui/Modal'
 
 export function WorkspaceSwitcher() {
   const { 
-    workspaces, 
+    workspaces: allWorkspaces, 
     activeWorkspaceId, 
+    currentUserId,
     switchWorkspace, 
     addWorkspace,
     renameWorkspace,
     deleteWorkspace,
     getActiveWorkspace,
   } = useOpsMapStore()
+  
+  // Filter workspaces to only show current user's workspaces
+  const workspaces = useMemo(() => {
+    if (!currentUserId) return allWorkspaces
+    return allWorkspaces.filter(ws => ws.userId === currentUserId)
+  }, [allWorkspaces, currentUserId])
 
   const [isOpen, setIsOpen] = useState(false)
   const [showManageModal, setShowManageModal] = useState(false)

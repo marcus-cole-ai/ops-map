@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { UserButton } from '@clerk/nextjs'
 import { cn } from '@/lib/utils'
 import {
   LayoutGrid,
@@ -201,8 +202,18 @@ export function Sidebar() {
           </Link>
           <KeyboardShortcuts />
         </div>
-        <div className="px-3 text-xs" style={{ color: 'var(--text-muted)' }}>
-          GrowthKits © 2026
+        <div className="flex items-center justify-between px-3">
+          <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            GrowthKits © 2026
+          </div>
+          <UserButton 
+            afterSignOutUrl="/"
+            appearance={{
+              elements: {
+                avatarBox: "w-8 h-8"
+              }
+            }}
+          />
         </div>
       </div>
     </>
