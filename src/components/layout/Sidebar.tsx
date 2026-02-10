@@ -19,6 +19,8 @@ import {
   PieChart,
   Menu,
   X,
+  Sparkles,
+  HeartPulse,
 } from 'lucide-react'
 import { GlobalSearch } from '@/components/GlobalSearch'
 import { KeyboardShortcuts } from '@/components/KeyboardShortcuts'
@@ -28,7 +30,9 @@ const navigation = [
   { name: 'Function Chart', href: '/function-chart', icon: LayoutGrid },
   { name: 'Workflows', href: '/workflows', icon: GitBranch },
   { name: 'Core Activities', href: '/activities', icon: Activity },
-  { name: 'Gap Analysis', href: '/gaps', icon: AlertCircle },
+  { name: 'AI Assistant', href: '/ai-assistant', icon: Sparkles },
+  { name: 'Ops Health', href: '/ops-health', icon: HeartPulse },
+  { name: 'AI Gap Analysis', href: '/gaps', icon: AlertCircle },
 ]
 
 const resources = [
