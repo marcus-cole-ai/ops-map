@@ -1,0 +1,71 @@
+# Ops Map Progress
+
+Last Updated: 2026-02-10
+
+## ✅ Completed Phases
+
+### Phase 1: Foundation
+- Next.js 16 project setup with App Router
+- Zustand store with localStorage persistence
+- Basic type definitions
+- Tailwind CSS styling
+
+### Phase 2: Core Data Model
+- Functions, SubFunctions, CoreActivities
+- Workflows, Phases, Steps
+- People, Roles, Software entities
+- Multi-workspace architecture
+
+### Phase 3: UI & Navigation
+- Dashboard with stats overview
+- Function Chart builder with drag-and-drop
+- Workflow builder with phases/steps
+- Activities list with filtering
+- Global search (⌘K)
+- Responsive sidebar navigation
+
+### Phase 4: Polish & Features
+- Status workflow (gap → draft → active → archived)
+- Video embeds (Loom, Google Drive)
+- PDF export for function chart
+- Clerk authentication integration
+- Multiple workspace support
+- Org chart visualization
+
+### Phase 5: Checklists & Markdown (COMPLETED)
+- Checklist items on activities
+- Multi-line paste support
+- Markdown rendering in descriptions
+- Checklist trigger/end state metadata
+- Reorderable checklist items
+
+## 🚧 In Progress
+
+None (between phases)
+
+## 📋 Next Up: Phase 6 - Backend Persistence
+
+See PRD.md for detailed task breakdown.
+
+Primary Goals:
+- Supabase integration for data persistence
+- Real-time sync between devices
+- Workspace sharing capability
+- Remove localStorage dependency (keep as fallback)
+
+## 🔮 Future Phases
+
+### Phase 7: AI Features
+- Gap analysis powered by Gemini
+- Activity suggestions based on company profile
+- Workflow templates
+
+### Phase 8: Collaboration
+- Team invitations
+- Role-based permissions
+- Activity assignments with notifications
+
+### Phase 9: Integrations
+- Import from spreadsheets
+- Export to various formats
+- Calendar/scheduling integration

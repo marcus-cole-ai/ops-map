@@ -11,7 +11,7 @@ import {
   Trash2, 
   ChevronDown, 
   ChevronRight,
-  Link as LinkIcon
+  X
 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -46,6 +46,9 @@ export default function WorkflowDetailPage({ params }: PageProps) {
     unlinkActivityFromStep,
     people,
     roles,
+    functions,
+    subFunctions,
+    subFunctionActivities,
   } = useOpsMapStore()
   const router = useRouter()
 
@@ -130,18 +133,25 @@ export default function WorkflowDetailPage({ params }: PageProps) {
     setEditingStep(null)
   }
 
-  // Check if activity has owner/role
-  const getActivityStatus = (activity: CoreActivity) => {
-    const hasOwner = activity.ownerId && people.find(p => p.id === activity.ownerId)
-    const hasRole = activity.roleId && roles.find(r => r.id === activity.roleId)
-    return { hasOwner, hasRole, complete: hasOwner || hasRole }
-  }
-
   const getAllowedTransitions = (status: Status): Status[] => {
     if (status === 'gap') return ['draft', 'archived']
     if (status === 'draft') return ['active', 'archived']
     if (status === 'active') return ['draft', 'archived']
     return ['draft']
+  }
+
+  const resolveActivityBreadcrumb = (activityId: string) => {
+    const links = subFunctionActivities.filter(link => link.coreActivityId === activityId)
+    if (links.length === 0) return 'No function linkage yet'
+
+    const first = links[0]
+    const subFunction = subFunctions.find(sf => sf.id === first.subFunctionId)
+    if (!subFunction) return 'No function linkage yet'
+
+    const fn = functions.find(item => item.id === subFunction.functionId)
+    if (!fn) return subFunction.name
+
+    return `${fn.name} > ${subFunction.name}`
   }
 
   const handleStatusChange = (status: Status) => {
@@ -328,68 +338,58 @@ export default function WorkflowDetailPage({ params }: PageProps) {
                                     className="ml-8 mb-4 p-4 rounded-lg"
                                     style={{ background: 'var(--cream-light)' }}
                                   >
-                                    {stepActivities.length === 0 ? (
-                                      <p className="text-sm italic" style={{ color: 'var(--text-muted)' }}>
-                                        No activities linked to this step
+                                    <div>
+                                      <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
+                                        Linked Activities
                                       </p>
-                                    ) : (
-                                      <div className="space-y-2">
-                                        {stepActivities.map((activity) => {
-                                          const status = getActivityStatus(activity)
-                                          return (
+                                      {stepActivities.length === 0 ? (
+                                        <p className="text-sm italic" style={{ color: 'var(--text-muted)' }}>
+                                          No activities linked to this step
+                                        </p>
+                                      ) : (
+                                        <div className="space-y-2">
+                                          {stepActivities.map((activity) => (
                                             <div
                                               key={activity.id}
-                                              className="activity-item cursor-pointer"
+                                              role="button"
+                                              tabIndex={0}
                                               onClick={() => setShowActivityDetail(activity)}
+                                              onKeyDown={(e) => {
+                                                if (e.key === 'Enter' || e.key === ' ') {
+                                                  e.preventDefault()
+                                                  setShowActivityDetail(activity)
+                                                }
+                                              }}
+                                              className="w-full text-left px-3 py-2 rounded-lg border flex items-center gap-3 transition-colors hover:bg-white cursor-pointer"
+                                              style={{ borderColor: 'var(--stone)', background: 'var(--white)' }}
                                             >
-                                              <span className="flex-1">{activity.name}</span>
-                                              {status.complete ? (
-                                                <span 
-                                                  className="text-xs px-2 py-0.5 rounded"
-                                                  style={{ background: 'var(--mint)', color: 'var(--gk-green-dark)' }}
-                                                >
-                                                  Assigned
-                                                </span>
-                                              ) : (
-                                                <span 
-                                                  className="badge badge-gap"
-                                                >
-                                                  Unassigned
-                                                </span>
-                                              )}
+                                              <div className="min-w-0 flex-1">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                  <span className="font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+                                                    {activity.name}
+                                                  </span>
+                                                  <StatusBadge status={activity.status} />
+                                                </div>
+                                                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                                                  {resolveActivityBreadcrumb(activity.id)}
+                                                </p>
+                                              </div>
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  unlinkActivityFromStep(step.id, activity.id)
+                                                }}
+                                                className="p-1.5 rounded-md transition-colors hover:bg-red-100"
+                                                aria-label="Unlink activity"
+                                                title="Unlink activity"
+                                              >
+                                                <X className="h-3 w-3" style={{ color: 'var(--text-muted)' }} />
+                                              </button>
                                             </div>
-                                          )
-                                        })}
-                                      </div>
-                                    )}
-
-                                    {/* SOP Field */}
-                                    <div 
-                                      className="mt-3 pt-3"
-                                      style={{ borderTop: '1px solid var(--stone)' }}
-                                    >
-                                      <label 
-                                        className="block text-xs font-medium mb-1"
-                                        style={{ color: 'var(--text-muted)' }}
-                                      >
-                                        SOP (Standard Operating Procedure)
-                                      </label>
-                                      <textarea
-                                        value={step.sop || ''}
-                                        onChange={(e) => {
-                                          e.stopPropagation()
-                                          updateStep(step.id, { sop: e.target.value })
-                                        }}
-                                        onClick={(e) => e.stopPropagation()}
-                                        placeholder="Document the standard procedure for this step..."
-                                        rows={3}
-                                        className="w-full px-3 py-2 rounded-lg border text-sm resize-none"
-                                        style={{ 
-                                          borderColor: 'var(--stone)', 
-                                          background: 'var(--white)',
-                                          color: 'var(--text-primary)'
-                                        }}
-                                      />
+                                          ))}
+                                        </div>
+                                      )}
                                     </div>
 
                                     {/* SOP Video */}
@@ -435,8 +435,23 @@ export default function WorkflowDetailPage({ params }: PageProps) {
                                           color: 'var(--gk-green-dark)' 
                                         }}
                                       >
-                                        <LinkIcon className="h-3 w-3" />
-                                        Link Activity
+                                        <Plus className="h-3 w-3" />
+                                        + Link Activity
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          router.push('/activities')
+                                        }}
+                                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-colors"
+                                        style={{ 
+                                          background: 'var(--white)', 
+                                          color: 'var(--text-secondary)',
+                                          border: '1px solid var(--stone)'
+                                        }}
+                                      >
+                                        <Plus className="h-3 w-3" />
+                                        + Create Activity
                                       </button>
                                       <button
                                         onClick={(e) => {
