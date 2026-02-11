@@ -8,6 +8,7 @@ import {
 } from "@clerk/nextjs";
 import { AppShell } from "@/components/AppShell";
 import { SignInPage } from "@/components/SignInPage";
+import { SupabaseProvider } from "@/contexts/SupabaseContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -25,12 +26,14 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en">
         <body className={inter.className}>
-          <SignedOut>
-            <SignInPage />
-          </SignedOut>
-          <SignedIn>
-            <AppShell>{children}</AppShell>
-          </SignedIn>
+          <SupabaseProvider>
+            <SignedOut>
+              <SignInPage />
+            </SignedOut>
+            <SignedIn>
+              <AppShell>{children}</AppShell>
+            </SignedIn>
+          </SupabaseProvider>
         </body>
       </html>
     </ClerkProvider>

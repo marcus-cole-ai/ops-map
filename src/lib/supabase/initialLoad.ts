@@ -3,11 +3,13 @@
  * 
  * Fetches all workspace data for a user on app load and transforms it
  * to the local store format. Handles merge with localStorage if needed.
+ * 
+ * Uses Clerk-authenticated Supabase client for RLS policy enforcement.
  */
 
-import { supabase } from './client'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Workspace, CompanyProfile, AISettings } from '@/types'
-import type { Tables } from '@/types/database'
+import type { Tables, Database } from '@/types/database'
 
 // Supabase row types
 type DbWorkspace = Tables<'workspaces'>
@@ -27,11 +29,18 @@ type DbSubFunctionActivity = Tables<'sub_function_activities'>
 type DbStepActivity = Tables<'step_activities'>
 
 /**
- * Fetch all workspace data from Supabase for a user
+ * Fetch all workspace data from Supabase for a user using authenticated client
+ * 
+ * @param client - Clerk-authenticated Supabase client
+ * @param userId - Clerk user ID (string, not UUID)
  */
-export async function loadUserWorkspaces(userId: string): Promise<Workspace[]> {
+export async function loadUserWorkspacesWithClient(
+  client: SupabaseClient<Database>,
+  userId: string
+): Promise<Workspace[]> {
   // 1. Fetch all workspaces for this user
-  const { data: dbWorkspaces, error: wsError } = await supabase
+  // RLS policy will filter based on auth.jwt()->>'sub' matching user_id
+  const { data: dbWorkspaces, error: wsError } = await client
     .from('workspaces')
     .select('*')
     .eq('user_id', userId)
@@ -48,7 +57,7 @@ export async function loadUserWorkspaces(userId: string): Promise<Workspace[]> {
 
   // 2. For each workspace, load all related data
   const workspaces = await Promise.all(
-    dbWorkspaces.map(ws => loadFullWorkspace(ws))
+    dbWorkspaces.map(ws => loadFullWorkspaceWithClient(client, ws))
   )
 
   return workspaces
@@ -57,7 +66,10 @@ export async function loadUserWorkspaces(userId: string): Promise<Workspace[]> {
 /**
  * Load all data for a single workspace and transform to local format
  */
-async function loadFullWorkspace(dbWorkspace: DbWorkspace): Promise<Workspace> {
+async function loadFullWorkspaceWithClient(
+  client: SupabaseClient<Database>,
+  dbWorkspace: DbWorkspace
+): Promise<Workspace> {
   const workspaceId = dbWorkspace.id
 
   // Fetch all entities in parallel
@@ -69,12 +81,12 @@ async function loadFullWorkspace(dbWorkspace: DbWorkspace): Promise<Workspace> {
     rolesResult,
     softwareResult,
   ] = await Promise.all([
-    supabase.from('functions').select('*').eq('workspace_id', workspaceId).order('order_index'),
-    supabase.from('core_activities').select('*').eq('workspace_id', workspaceId).order('created_at'),
-    supabase.from('workflows').select('*').eq('workspace_id', workspaceId).order('created_at'),
-    supabase.from('people').select('*').eq('workspace_id', workspaceId).order('name'),
-    supabase.from('roles').select('*').eq('workspace_id', workspaceId).order('name'),
-    supabase.from('software').select('*').eq('workspace_id', workspaceId).order('name'),
+    client.from('functions').select('*').eq('workspace_id', workspaceId).order('order_index'),
+    client.from('core_activities').select('*').eq('workspace_id', workspaceId).order('created_at'),
+    client.from('workflows').select('*').eq('workspace_id', workspaceId).order('created_at'),
+    client.from('people').select('*').eq('workspace_id', workspaceId).order('name'),
+    client.from('roles').select('*').eq('workspace_id', workspaceId).order('name'),
+    client.from('software').select('*').eq('workspace_id', workspaceId).order('name'),
   ])
 
   const functions = (functionsResult.data ?? []) as DbFunction[]
@@ -91,10 +103,10 @@ async function loadFullWorkspace(dbWorkspace: DbWorkspace): Promise<Workspace> {
 
   const [subFunctionsResult, checklistResult] = await Promise.all([
     functionIds.length > 0
-      ? supabase.from('sub_functions').select('*').in('function_id', functionIds).order('order_index')
+      ? client.from('sub_functions').select('*').in('function_id', functionIds).order('order_index')
       : Promise.resolve({ data: [] }),
     activityIds.length > 0
-      ? supabase.from('checklist_items').select('*').in('activity_id', activityIds).order('order_index')
+      ? client.from('checklist_items').select('*').in('activity_id', activityIds).order('order_index')
       : Promise.resolve({ data: [] }),
   ])
 
@@ -103,13 +115,13 @@ async function loadFullWorkspace(dbWorkspace: DbWorkspace): Promise<Workspace> {
 
   // Fetch phases and then steps
   const phasesResult = workflowIds.length > 0
-    ? await supabase.from('phases').select('*').in('workflow_id', workflowIds).order('order_index')
+    ? await client.from('phases').select('*').in('workflow_id', workflowIds).order('order_index')
     : { data: [] }
   const phases = (phasesResult.data ?? []) as DbPhase[]
 
   const phaseIds = phases.map(p => p.id)
   const stepsResult = phaseIds.length > 0
-    ? await supabase.from('steps').select('*').in('phase_id', phaseIds).order('order_index')
+    ? await client.from('steps').select('*').in('phase_id', phaseIds).order('order_index')
     : { data: [] }
   const steps = (stepsResult.data ?? []) as DbStep[]
 
@@ -119,10 +131,10 @@ async function loadFullWorkspace(dbWorkspace: DbWorkspace): Promise<Workspace> {
 
   const [subFuncActivitiesResult, stepActivitiesResult] = await Promise.all([
     subFunctionIds.length > 0
-      ? supabase.from('sub_function_activities').select('*').in('sub_function_id', subFunctionIds)
+      ? client.from('sub_function_activities').select('*').in('sub_function_id', subFunctionIds)
       : Promise.resolve({ data: [] }),
     stepIds.length > 0
-      ? supabase.from('step_activities').select('*').in('step_id', stepIds)
+      ? client.from('step_activities').select('*').in('step_id', stepIds)
       : Promise.resolve({ data: [] }),
   ])
 

@@ -7,7 +7,13 @@ import {
   type SyncState,
 } from '../syncMiddleware'
 
-// Mock the sync module
+// Mock the SupabaseContext to return a fake client
+const mockClient = { from: vi.fn() }
+vi.mock('@/contexts/SupabaseContext', () => ({
+  getSupabaseClient: vi.fn(() => mockClient),
+}))
+
+// Mock the sync module - functions now take client as first arg
 vi.mock('@/lib/supabase/sync', () => ({
   createWorkspace: vi.fn().mockResolvedValue({ id: 'ws-1' }),
   updateWorkspace: vi.fn().mockResolvedValue({ id: 'ws-1' }),
@@ -22,6 +28,7 @@ vi.mock('@/lib/supabase/sync', () => ({
 }))
 
 import * as sync from '@/lib/supabase/sync'
+import { getSupabaseClient } from '@/contexts/SupabaseContext'
 
 describe('Store + Sync Integration', () => {
   let mockSetSyncStatus: ReturnType<typeof vi.fn>
@@ -32,6 +39,8 @@ describe('Store + Sync Integration', () => {
     vi.useFakeTimers()
     mockSetSyncStatus = vi.fn()
     mockMarkSynced = vi.fn()
+    // Ensure mock client is returned
+    vi.mocked(getSupabaseClient).mockReturnValue(mockClient as ReturnType<typeof getSupabaseClient>)
   })
 
   afterEach(() => {
@@ -52,7 +61,8 @@ describe('Store + Sync Integration', () => {
       vi.advanceTimersByTime(350)
       await vi.runAllTimersAsync()
 
-      expect(sync.createFunction).toHaveBeenCalledWith(operation.data)
+      // Should be called with client and data
+      expect(sync.createFunction).toHaveBeenCalledWith(mockClient, operation.data)
       expect(mockSetSyncStatus).toHaveBeenCalledWith('syncing')
       expect(mockMarkSynced).toHaveBeenCalled()
     })
@@ -89,6 +99,24 @@ describe('Store + Sync Integration', () => {
       expect(sync.createActivity).toHaveBeenCalledTimes(1)
       expect(mockSetSyncStatus).toHaveBeenCalledWith('syncing')
     })
+
+    it('skips sync when no Supabase client available', async () => {
+      vi.mocked(getSupabaseClient).mockReturnValue(null)
+
+      const operation: SyncOperation = {
+        type: 'create',
+        entity: 'function',
+        data: { name: 'No client' },
+      }
+
+      queueSyncOperation(operation, true, mockSetSyncStatus, mockMarkSynced)
+
+      vi.advanceTimersByTime(350)
+      await vi.runAllTimersAsync()
+
+      // Should not call sync function when no client
+      expect(sync.createFunction).not.toHaveBeenCalled()
+    })
   })
 
   describe('offline fallback behavior', () => {
@@ -96,10 +124,10 @@ describe('Store + Sync Integration', () => {
       // This test verifies the design: localStorage persist middleware
       // operates separately from Supabase sync
       const mockStore = {
-        functions: [],
+        functions: [] as { id: string; name: string }[],
         addFunction: vi.fn((name: string) => {
           const fn = { id: 'fn-local', name }
-          mockStore.functions.push(fn as never)
+          mockStore.functions.push(fn)
           return fn
         }),
       }
@@ -230,7 +258,7 @@ describe('Store + Sync Integration', () => {
       // Don't wait for debounce, flush immediately
       await flushSyncQueue(mockSetSyncStatus, mockMarkSynced)
 
-      expect(sync.createActivity).toHaveBeenCalledWith({ name: 'Urgent' })
+      expect(sync.createActivity).toHaveBeenCalledWith(mockClient, { name: 'Urgent' })
       expect(mockMarkSynced).toHaveBeenCalled()
     })
   })

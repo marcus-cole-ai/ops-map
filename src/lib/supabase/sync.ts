@@ -1,16 +1,67 @@
-import { supabase } from './client'
-import type { Tables, TablesInsert, TablesUpdate } from '@/types/database'
+/**
+ * Supabase sync operations
+ * 
+ * CRUD operations for all entity types that sync to Supabase.
+ * All functions accept a Supabase client instance, allowing them
+ * to work with Clerk-authenticated clients for RLS policy enforcement.
+ */
 
-// Type aliases for workspaces
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Tables, TablesInsert, TablesUpdate, Database } from '@/types/database'
+
+// Re-export types for convenience
 export type Workspace = Tables<'workspaces'>
 export type WorkspaceInsert = TablesInsert<'workspaces'>
 export type WorkspaceUpdate = TablesUpdate<'workspaces'>
 
-/**
- * Fetch all workspaces for a user
- */
-export async function fetchWorkspaces(userId: string): Promise<Workspace[]> {
-  const { data, error } = await supabase
+export type BusinessFunction = Tables<'functions'>
+export type FunctionInsert = TablesInsert<'functions'>
+export type FunctionUpdate = TablesUpdate<'functions'>
+
+export type SubFunction = Tables<'sub_functions'>
+export type SubFunctionInsert = TablesInsert<'sub_functions'>
+export type SubFunctionUpdate = TablesUpdate<'sub_functions'>
+
+export type CoreActivity = Tables<'core_activities'>
+export type CoreActivityInsert = TablesInsert<'core_activities'>
+export type CoreActivityUpdate = TablesUpdate<'core_activities'>
+
+export type ChecklistItem = Tables<'checklist_items'>
+export type ChecklistItemInsert = TablesInsert<'checklist_items'>
+export type ChecklistItemUpdate = TablesUpdate<'checklist_items'>
+
+export type Workflow = Tables<'workflows'>
+export type WorkflowInsert = TablesInsert<'workflows'>
+export type WorkflowUpdate = TablesUpdate<'workflows'>
+
+export type Phase = Tables<'phases'>
+export type PhaseInsert = TablesInsert<'phases'>
+export type PhaseUpdate = TablesUpdate<'phases'>
+
+export type Step = Tables<'steps'>
+export type StepInsert = TablesInsert<'steps'>
+export type StepUpdate = TablesUpdate<'steps'>
+
+export type Person = Tables<'people'>
+export type PersonInsert = TablesInsert<'people'>
+export type PersonUpdate = TablesUpdate<'people'>
+
+export type Role = Tables<'roles'>
+export type RoleInsert = TablesInsert<'roles'>
+export type RoleUpdate = TablesUpdate<'roles'>
+
+export type Software = Tables<'software'>
+export type SoftwareInsert = TablesInsert<'software'>
+export type SoftwareUpdate = TablesUpdate<'software'>
+
+type Client = SupabaseClient<Database>
+
+// =============================================================================
+// Workspaces CRUD
+// =============================================================================
+
+export async function fetchWorkspaces(client: Client, userId: string): Promise<Workspace[]> {
+  const { data, error } = await client
     .from('workspaces')
     .select('*')
     .eq('user_id', userId)
@@ -24,13 +75,8 @@ export async function fetchWorkspaces(userId: string): Promise<Workspace[]> {
   return data ?? []
 }
 
-/**
- * Create a new workspace
- */
-export async function createWorkspace(
-  workspace: WorkspaceInsert
-): Promise<Workspace> {
-  const { data, error } = await supabase
+export async function createWorkspace(client: Client, workspace: WorkspaceInsert): Promise<Workspace> {
+  const { data, error } = await client
     .from('workspaces')
     .insert(workspace)
     .select()
@@ -44,14 +90,8 @@ export async function createWorkspace(
   return data
 }
 
-/**
- * Update an existing workspace
- */
-export async function updateWorkspace(
-  id: string,
-  updates: WorkspaceUpdate
-): Promise<Workspace> {
-  const { data, error } = await supabase
+export async function updateWorkspace(client: Client, id: string, updates: WorkspaceUpdate): Promise<Workspace> {
+  const { data, error } = await client
     .from('workspaces')
     .update(updates)
     .eq('id', id)
@@ -66,11 +106,8 @@ export async function updateWorkspace(
   return data
 }
 
-/**
- * Delete a workspace by ID
- */
-export async function deleteWorkspace(id: string): Promise<void> {
-  const { error } = await supabase
+export async function deleteWorkspace(client: Client, id: string): Promise<void> {
+  const { error } = await client
     .from('workspaces')
     .delete()
     .eq('id', id)
@@ -81,41 +118,12 @@ export async function deleteWorkspace(id: string): Promise<void> {
   }
 }
 
-/**
- * Fetch a single workspace by ID
- */
-export async function fetchWorkspaceById(id: string): Promise<Workspace | null> {
-  const { data, error } = await supabase
-    .from('workspaces')
-    .select('*')
-    .eq('id', id)
-    .single()
-
-  if (error) {
-    if (error.code === 'PGRST116') {
-      // No rows returned
-      return null
-    }
-    console.error('Error fetching workspace:', error)
-    throw new Error(`Failed to fetch workspace: ${error.message}`)
-  }
-
-  return data
-}
-
 // =============================================================================
 // Functions CRUD
 // =============================================================================
 
-export type BusinessFunction = Tables<'functions'>
-export type FunctionInsert = TablesInsert<'functions'>
-export type FunctionUpdate = TablesUpdate<'functions'>
-
-/**
- * Fetch all functions for a workspace, ordered by order_index
- */
-export async function fetchFunctions(workspaceId: string): Promise<BusinessFunction[]> {
-  const { data, error } = await supabase
+export async function fetchFunctions(client: Client, workspaceId: string): Promise<BusinessFunction[]> {
+  const { data, error } = await client
     .from('functions')
     .select('*')
     .eq('workspace_id', workspaceId)
@@ -129,11 +137,8 @@ export async function fetchFunctions(workspaceId: string): Promise<BusinessFunct
   return data ?? []
 }
 
-/**
- * Create a new function
- */
-export async function createFunction(func: FunctionInsert): Promise<BusinessFunction> {
-  const { data, error } = await supabase
+export async function createFunction(client: Client, func: FunctionInsert): Promise<BusinessFunction> {
+  const { data, error } = await client
     .from('functions')
     .insert(func)
     .select()
@@ -147,14 +152,8 @@ export async function createFunction(func: FunctionInsert): Promise<BusinessFunc
   return data
 }
 
-/**
- * Update an existing function
- */
-export async function updateFunction(
-  id: string,
-  updates: FunctionUpdate
-): Promise<BusinessFunction> {
-  const { data, error } = await supabase
+export async function updateFunction(client: Client, id: string, updates: FunctionUpdate): Promise<BusinessFunction> {
+  const { data, error } = await client
     .from('functions')
     .update(updates)
     .eq('id', id)
@@ -169,11 +168,8 @@ export async function updateFunction(
   return data
 }
 
-/**
- * Delete a function by ID
- */
-export async function deleteFunction(id: string): Promise<void> {
-  const { error } = await supabase
+export async function deleteFunction(client: Client, id: string): Promise<void> {
+  const { error } = await client
     .from('functions')
     .delete()
     .eq('id', id)
@@ -184,15 +180,9 @@ export async function deleteFunction(id: string): Promise<void> {
   }
 }
 
-/**
- * Update order_index for multiple functions (batch reorder)
- */
-export async function updateFunctionOrder(
-  updates: { id: string; order_index: number }[]
-): Promise<void> {
-  // Supabase doesn't support batch updates natively, so we use Promise.all
+export async function updateFunctionOrder(client: Client, updates: { id: string; order_index: number }[]): Promise<void> {
   const promises = updates.map(({ id, order_index }) =>
-    supabase.from('functions').update({ order_index }).eq('id', id)
+    client.from('functions').update({ order_index }).eq('id', id)
   )
 
   const results = await Promise.all(promises)
@@ -207,33 +197,8 @@ export async function updateFunctionOrder(
 // Sub-Functions CRUD
 // =============================================================================
 
-export type SubFunction = Tables<'sub_functions'>
-export type SubFunctionInsert = TablesInsert<'sub_functions'>
-export type SubFunctionUpdate = TablesUpdate<'sub_functions'>
-
-/**
- * Fetch all sub-functions for a function, ordered by order_index
- */
-export async function fetchSubFunctions(functionId: string): Promise<SubFunction[]> {
-  const { data, error } = await supabase
-    .from('sub_functions')
-    .select('*')
-    .eq('function_id', functionId)
-    .order('order_index', { ascending: true })
-
-  if (error) {
-    console.error('Error fetching sub-functions:', error)
-    throw new Error(`Failed to fetch sub-functions: ${error.message}`)
-  }
-
-  return data ?? []
-}
-
-/**
- * Create a new sub-function
- */
-export async function createSubFunction(subFunc: SubFunctionInsert): Promise<SubFunction> {
-  const { data, error } = await supabase
+export async function createSubFunction(client: Client, subFunc: SubFunctionInsert): Promise<SubFunction> {
+  const { data, error } = await client
     .from('sub_functions')
     .insert(subFunc)
     .select()
@@ -247,14 +212,8 @@ export async function createSubFunction(subFunc: SubFunctionInsert): Promise<Sub
   return data
 }
 
-/**
- * Update an existing sub-function
- */
-export async function updateSubFunction(
-  id: string,
-  updates: SubFunctionUpdate
-): Promise<SubFunction> {
-  const { data, error } = await supabase
+export async function updateSubFunction(client: Client, id: string, updates: SubFunctionUpdate): Promise<SubFunction> {
+  const { data, error } = await client
     .from('sub_functions')
     .update(updates)
     .eq('id', id)
@@ -269,11 +228,8 @@ export async function updateSubFunction(
   return data
 }
 
-/**
- * Delete a sub-function by ID
- */
-export async function deleteSubFunction(id: string): Promise<void> {
-  const { error } = await supabase
+export async function deleteSubFunction(client: Client, id: string): Promise<void> {
+  const { error } = await client
     .from('sub_functions')
     .delete()
     .eq('id', id)
@@ -284,14 +240,9 @@ export async function deleteSubFunction(id: string): Promise<void> {
   }
 }
 
-/**
- * Update order_index for multiple sub-functions (batch reorder)
- */
-export async function updateSubFunctionOrder(
-  updates: { id: string; order_index: number }[]
-): Promise<void> {
+export async function updateSubFunctionOrder(client: Client, updates: { id: string; order_index: number }[]): Promise<void> {
   const promises = updates.map(({ id, order_index }) =>
-    supabase.from('sub_functions').update({ order_index }).eq('id', id)
+    client.from('sub_functions').update({ order_index }).eq('id', id)
   )
 
   const results = await Promise.all(promises)
@@ -306,33 +257,8 @@ export async function updateSubFunctionOrder(
 // Core Activities CRUD
 // =============================================================================
 
-export type CoreActivity = Tables<'core_activities'>
-export type CoreActivityInsert = TablesInsert<'core_activities'>
-export type CoreActivityUpdate = TablesUpdate<'core_activities'>
-
-/**
- * Fetch all activities for a workspace
- */
-export async function fetchActivities(workspaceId: string): Promise<CoreActivity[]> {
-  const { data, error } = await supabase
-    .from('core_activities')
-    .select('*')
-    .eq('workspace_id', workspaceId)
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    console.error('Error fetching activities:', error)
-    throw new Error(`Failed to fetch activities: ${error.message}`)
-  }
-
-  return data ?? []
-}
-
-/**
- * Create a new activity
- */
-export async function createActivity(activity: CoreActivityInsert): Promise<CoreActivity> {
-  const { data, error } = await supabase
+export async function createActivity(client: Client, activity: CoreActivityInsert): Promise<CoreActivity> {
+  const { data, error } = await client
     .from('core_activities')
     .insert(activity)
     .select()
@@ -346,14 +272,8 @@ export async function createActivity(activity: CoreActivityInsert): Promise<Core
   return data
 }
 
-/**
- * Update an existing activity
- */
-export async function updateActivity(
-  id: string,
-  updates: CoreActivityUpdate
-): Promise<CoreActivity> {
-  const { data, error } = await supabase
+export async function updateActivity(client: Client, id: string, updates: CoreActivityUpdate): Promise<CoreActivity> {
+  const { data, error } = await client
     .from('core_activities')
     .update(updates)
     .eq('id', id)
@@ -368,11 +288,8 @@ export async function updateActivity(
   return data
 }
 
-/**
- * Delete an activity by ID
- */
-export async function deleteActivity(id: string): Promise<void> {
-  const { error } = await supabase
+export async function deleteActivity(client: Client, id: string): Promise<void> {
+  const { error } = await client
     .from('core_activities')
     .delete()
     .eq('id', id)
@@ -387,33 +304,8 @@ export async function deleteActivity(id: string): Promise<void> {
 // Checklist Items CRUD
 // =============================================================================
 
-export type ChecklistItem = Tables<'checklist_items'>
-export type ChecklistItemInsert = TablesInsert<'checklist_items'>
-export type ChecklistItemUpdate = TablesUpdate<'checklist_items'>
-
-/**
- * Fetch all checklist items for an activity, ordered by order_index
- */
-export async function fetchChecklistItems(activityId: string): Promise<ChecklistItem[]> {
-  const { data, error } = await supabase
-    .from('checklist_items')
-    .select('*')
-    .eq('activity_id', activityId)
-    .order('order_index', { ascending: true })
-
-  if (error) {
-    console.error('Error fetching checklist items:', error)
-    throw new Error(`Failed to fetch checklist items: ${error.message}`)
-  }
-
-  return data ?? []
-}
-
-/**
- * Create a new checklist item
- */
-export async function createChecklistItem(item: ChecklistItemInsert): Promise<ChecklistItem> {
-  const { data, error } = await supabase
+export async function createChecklistItem(client: Client, item: ChecklistItemInsert): Promise<ChecklistItem> {
+  const { data, error } = await client
     .from('checklist_items')
     .insert(item)
     .select()
@@ -427,14 +319,8 @@ export async function createChecklistItem(item: ChecklistItemInsert): Promise<Ch
   return data
 }
 
-/**
- * Update an existing checklist item
- */
-export async function updateChecklistItem(
-  id: string,
-  updates: ChecklistItemUpdate
-): Promise<ChecklistItem> {
-  const { data, error } = await supabase
+export async function updateChecklistItem(client: Client, id: string, updates: ChecklistItemUpdate): Promise<ChecklistItem> {
+  const { data, error } = await client
     .from('checklist_items')
     .update(updates)
     .eq('id', id)
@@ -449,11 +335,8 @@ export async function updateChecklistItem(
   return data
 }
 
-/**
- * Delete a checklist item by ID
- */
-export async function deleteChecklistItem(id: string): Promise<void> {
-  const { error } = await supabase
+export async function deleteChecklistItem(client: Client, id: string): Promise<void> {
+  const { error } = await client
     .from('checklist_items')
     .delete()
     .eq('id', id)
@@ -464,14 +347,9 @@ export async function deleteChecklistItem(id: string): Promise<void> {
   }
 }
 
-/**
- * Update order_index for multiple checklist items (batch reorder)
- */
-export async function updateChecklistItemOrder(
-  updates: { id: string; order_index: number }[]
-): Promise<void> {
+export async function updateChecklistItemOrder(client: Client, updates: { id: string; order_index: number }[]): Promise<void> {
   const promises = updates.map(({ id, order_index }) =>
-    supabase.from('checklist_items').update({ order_index }).eq('id', id)
+    client.from('checklist_items').update({ order_index }).eq('id', id)
   )
 
   const results = await Promise.all(promises)
@@ -486,33 +364,8 @@ export async function updateChecklistItemOrder(
 // Workflows CRUD
 // =============================================================================
 
-export type Workflow = Tables<'workflows'>
-export type WorkflowInsert = TablesInsert<'workflows'>
-export type WorkflowUpdate = TablesUpdate<'workflows'>
-
-/**
- * Fetch all workflows for a workspace
- */
-export async function fetchWorkflows(workspaceId: string): Promise<Workflow[]> {
-  const { data, error } = await supabase
-    .from('workflows')
-    .select('*')
-    .eq('workspace_id', workspaceId)
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    console.error('Error fetching workflows:', error)
-    throw new Error(`Failed to fetch workflows: ${error.message}`)
-  }
-
-  return data ?? []
-}
-
-/**
- * Create a new workflow
- */
-export async function createWorkflow(workflow: WorkflowInsert): Promise<Workflow> {
-  const { data, error } = await supabase
+export async function createWorkflow(client: Client, workflow: WorkflowInsert): Promise<Workflow> {
+  const { data, error } = await client
     .from('workflows')
     .insert(workflow)
     .select()
@@ -526,14 +379,8 @@ export async function createWorkflow(workflow: WorkflowInsert): Promise<Workflow
   return data
 }
 
-/**
- * Update an existing workflow
- */
-export async function updateWorkflow(
-  id: string,
-  updates: WorkflowUpdate
-): Promise<Workflow> {
-  const { data, error } = await supabase
+export async function updateWorkflow(client: Client, id: string, updates: WorkflowUpdate): Promise<Workflow> {
+  const { data, error } = await client
     .from('workflows')
     .update(updates)
     .eq('id', id)
@@ -548,11 +395,8 @@ export async function updateWorkflow(
   return data
 }
 
-/**
- * Delete a workflow by ID
- */
-export async function deleteWorkflow(id: string): Promise<void> {
-  const { error } = await supabase
+export async function deleteWorkflow(client: Client, id: string): Promise<void> {
+  const { error } = await client
     .from('workflows')
     .delete()
     .eq('id', id)
@@ -567,33 +411,8 @@ export async function deleteWorkflow(id: string): Promise<void> {
 // Phases CRUD
 // =============================================================================
 
-export type Phase = Tables<'phases'>
-export type PhaseInsert = TablesInsert<'phases'>
-export type PhaseUpdate = TablesUpdate<'phases'>
-
-/**
- * Fetch all phases for a workflow, ordered by order_index
- */
-export async function fetchPhases(workflowId: string): Promise<Phase[]> {
-  const { data, error } = await supabase
-    .from('phases')
-    .select('*')
-    .eq('workflow_id', workflowId)
-    .order('order_index', { ascending: true })
-
-  if (error) {
-    console.error('Error fetching phases:', error)
-    throw new Error(`Failed to fetch phases: ${error.message}`)
-  }
-
-  return data ?? []
-}
-
-/**
- * Create a new phase
- */
-export async function createPhase(phase: PhaseInsert): Promise<Phase> {
-  const { data, error } = await supabase
+export async function createPhase(client: Client, phase: PhaseInsert): Promise<Phase> {
+  const { data, error } = await client
     .from('phases')
     .insert(phase)
     .select()
@@ -607,14 +426,8 @@ export async function createPhase(phase: PhaseInsert): Promise<Phase> {
   return data
 }
 
-/**
- * Update an existing phase
- */
-export async function updatePhase(
-  id: string,
-  updates: PhaseUpdate
-): Promise<Phase> {
-  const { data, error } = await supabase
+export async function updatePhase(client: Client, id: string, updates: PhaseUpdate): Promise<Phase> {
+  const { data, error } = await client
     .from('phases')
     .update(updates)
     .eq('id', id)
@@ -629,11 +442,8 @@ export async function updatePhase(
   return data
 }
 
-/**
- * Delete a phase by ID
- */
-export async function deletePhase(id: string): Promise<void> {
-  const { error } = await supabase
+export async function deletePhase(client: Client, id: string): Promise<void> {
+  const { error } = await client
     .from('phases')
     .delete()
     .eq('id', id)
@@ -644,14 +454,9 @@ export async function deletePhase(id: string): Promise<void> {
   }
 }
 
-/**
- * Update order_index for multiple phases (batch reorder)
- */
-export async function updatePhaseOrder(
-  updates: { id: string; order_index: number }[]
-): Promise<void> {
+export async function updatePhaseOrder(client: Client, updates: { id: string; order_index: number }[]): Promise<void> {
   const promises = updates.map(({ id, order_index }) =>
-    supabase.from('phases').update({ order_index }).eq('id', id)
+    client.from('phases').update({ order_index }).eq('id', id)
   )
 
   const results = await Promise.all(promises)
@@ -666,33 +471,8 @@ export async function updatePhaseOrder(
 // Steps CRUD
 // =============================================================================
 
-export type Step = Tables<'steps'>
-export type StepInsert = TablesInsert<'steps'>
-export type StepUpdate = TablesUpdate<'steps'>
-
-/**
- * Fetch all steps for a phase, ordered by order_index
- */
-export async function fetchSteps(phaseId: string): Promise<Step[]> {
-  const { data, error } = await supabase
-    .from('steps')
-    .select('*')
-    .eq('phase_id', phaseId)
-    .order('order_index', { ascending: true })
-
-  if (error) {
-    console.error('Error fetching steps:', error)
-    throw new Error(`Failed to fetch steps: ${error.message}`)
-  }
-
-  return data ?? []
-}
-
-/**
- * Create a new step
- */
-export async function createStep(step: StepInsert): Promise<Step> {
-  const { data, error } = await supabase
+export async function createStep(client: Client, step: StepInsert): Promise<Step> {
+  const { data, error } = await client
     .from('steps')
     .insert(step)
     .select()
@@ -706,14 +486,8 @@ export async function createStep(step: StepInsert): Promise<Step> {
   return data
 }
 
-/**
- * Update an existing step
- */
-export async function updateStep(
-  id: string,
-  updates: StepUpdate
-): Promise<Step> {
-  const { data, error } = await supabase
+export async function updateStep(client: Client, id: string, updates: StepUpdate): Promise<Step> {
+  const { data, error } = await client
     .from('steps')
     .update(updates)
     .eq('id', id)
@@ -728,11 +502,8 @@ export async function updateStep(
   return data
 }
 
-/**
- * Delete a step by ID
- */
-export async function deleteStep(id: string): Promise<void> {
-  const { error } = await supabase
+export async function deleteStep(client: Client, id: string): Promise<void> {
+  const { error } = await client
     .from('steps')
     .delete()
     .eq('id', id)
@@ -743,14 +514,9 @@ export async function deleteStep(id: string): Promise<void> {
   }
 }
 
-/**
- * Update order_index for multiple steps (batch reorder)
- */
-export async function updateStepOrder(
-  updates: { id: string; order_index: number }[]
-): Promise<void> {
+export async function updateStepOrder(client: Client, updates: { id: string; order_index: number }[]): Promise<void> {
   const promises = updates.map(({ id, order_index }) =>
-    supabase.from('steps').update({ order_index }).eq('id', id)
+    client.from('steps').update({ order_index }).eq('id', id)
   )
 
   const results = await Promise.all(promises)
@@ -765,33 +531,8 @@ export async function updateStepOrder(
 // People CRUD
 // =============================================================================
 
-export type Person = Tables<'people'>
-export type PersonInsert = TablesInsert<'people'>
-export type PersonUpdate = TablesUpdate<'people'>
-
-/**
- * Fetch all people for a workspace
- */
-export async function fetchPeople(workspaceId: string): Promise<Person[]> {
-  const { data, error } = await supabase
-    .from('people')
-    .select('*')
-    .eq('workspace_id', workspaceId)
-    .order('name', { ascending: true })
-
-  if (error) {
-    console.error('Error fetching people:', error)
-    throw new Error(`Failed to fetch people: ${error.message}`)
-  }
-
-  return data ?? []
-}
-
-/**
- * Create a new person
- */
-export async function createPerson(person: PersonInsert): Promise<Person> {
-  const { data, error } = await supabase
+export async function createPerson(client: Client, person: PersonInsert): Promise<Person> {
+  const { data, error } = await client
     .from('people')
     .insert(person)
     .select()
@@ -805,11 +546,8 @@ export async function createPerson(person: PersonInsert): Promise<Person> {
   return data
 }
 
-/**
- * Update an existing person
- */
-export async function updatePerson(id: string, updates: PersonUpdate): Promise<Person> {
-  const { data, error } = await supabase
+export async function updatePerson(client: Client, id: string, updates: PersonUpdate): Promise<Person> {
+  const { data, error } = await client
     .from('people')
     .update(updates)
     .eq('id', id)
@@ -824,11 +562,8 @@ export async function updatePerson(id: string, updates: PersonUpdate): Promise<P
   return data
 }
 
-/**
- * Delete a person by ID
- */
-export async function deletePerson(id: string): Promise<void> {
-  const { error } = await supabase.from('people').delete().eq('id', id)
+export async function deletePerson(client: Client, id: string): Promise<void> {
+  const { error } = await client.from('people').delete().eq('id', id)
 
   if (error) {
     console.error('Error deleting person:', error)
@@ -840,33 +575,8 @@ export async function deletePerson(id: string): Promise<void> {
 // Roles CRUD
 // =============================================================================
 
-export type Role = Tables<'roles'>
-export type RoleInsert = TablesInsert<'roles'>
-export type RoleUpdate = TablesUpdate<'roles'>
-
-/**
- * Fetch all roles for a workspace
- */
-export async function fetchRoles(workspaceId: string): Promise<Role[]> {
-  const { data, error } = await supabase
-    .from('roles')
-    .select('*')
-    .eq('workspace_id', workspaceId)
-    .order('name', { ascending: true })
-
-  if (error) {
-    console.error('Error fetching roles:', error)
-    throw new Error(`Failed to fetch roles: ${error.message}`)
-  }
-
-  return data ?? []
-}
-
-/**
- * Create a new role
- */
-export async function createRole(role: RoleInsert): Promise<Role> {
-  const { data, error } = await supabase
+export async function createRole(client: Client, role: RoleInsert): Promise<Role> {
+  const { data, error } = await client
     .from('roles')
     .insert(role)
     .select()
@@ -880,11 +590,8 @@ export async function createRole(role: RoleInsert): Promise<Role> {
   return data
 }
 
-/**
- * Update an existing role
- */
-export async function updateRole(id: string, updates: RoleUpdate): Promise<Role> {
-  const { data, error } = await supabase
+export async function updateRole(client: Client, id: string, updates: RoleUpdate): Promise<Role> {
+  const { data, error } = await client
     .from('roles')
     .update(updates)
     .eq('id', id)
@@ -899,11 +606,8 @@ export async function updateRole(id: string, updates: RoleUpdate): Promise<Role>
   return data
 }
 
-/**
- * Delete a role by ID
- */
-export async function deleteRole(id: string): Promise<void> {
-  const { error } = await supabase.from('roles').delete().eq('id', id)
+export async function deleteRole(client: Client, id: string): Promise<void> {
+  const { error } = await client.from('roles').delete().eq('id', id)
 
   if (error) {
     console.error('Error deleting role:', error)
@@ -915,33 +619,8 @@ export async function deleteRole(id: string): Promise<void> {
 // Software CRUD
 // =============================================================================
 
-export type Software = Tables<'software'>
-export type SoftwareInsert = TablesInsert<'software'>
-export type SoftwareUpdate = TablesUpdate<'software'>
-
-/**
- * Fetch all software for a workspace
- */
-export async function fetchSoftware(workspaceId: string): Promise<Software[]> {
-  const { data, error } = await supabase
-    .from('software')
-    .select('*')
-    .eq('workspace_id', workspaceId)
-    .order('name', { ascending: true })
-
-  if (error) {
-    console.error('Error fetching software:', error)
-    throw new Error(`Failed to fetch software: ${error.message}`)
-  }
-
-  return data ?? []
-}
-
-/**
- * Create a new software entry
- */
-export async function createSoftware(software: SoftwareInsert): Promise<Software> {
-  const { data, error } = await supabase
+export async function createSoftware(client: Client, software: SoftwareInsert): Promise<Software> {
+  const { data, error } = await client
     .from('software')
     .insert(software)
     .select()
@@ -955,11 +634,8 @@ export async function createSoftware(software: SoftwareInsert): Promise<Software
   return data
 }
 
-/**
- * Update an existing software entry
- */
-export async function updateSoftware(id: string, updates: SoftwareUpdate): Promise<Software> {
-  const { data, error } = await supabase
+export async function updateSoftware(client: Client, id: string, updates: SoftwareUpdate): Promise<Software> {
+  const { data, error } = await client
     .from('software')
     .update(updates)
     .eq('id', id)
@@ -974,11 +650,8 @@ export async function updateSoftware(id: string, updates: SoftwareUpdate): Promi
   return data
 }
 
-/**
- * Delete a software entry by ID
- */
-export async function deleteSoftware(id: string): Promise<void> {
-  const { error } = await supabase.from('software').delete().eq('id', id)
+export async function deleteSoftware(client: Client, id: string): Promise<void> {
+  const { error } = await client.from('software').delete().eq('id', id)
 
   if (error) {
     console.error('Error deleting software:', error)

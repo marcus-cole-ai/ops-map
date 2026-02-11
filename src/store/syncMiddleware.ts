@@ -3,9 +3,12 @@
  * 
  * Intercepts store mutations and syncs changes to Supabase when syncEnabled is true.
  * localStorage (via persist middleware) remains the offline fallback.
+ * 
+ * Uses the global Supabase client from SupabaseContext for Clerk authentication.
  */
 
 import * as sync from '@/lib/supabase/sync'
+import { getSupabaseClient } from '@/contexts/SupabaseContext'
 
 // Sync operation types
 export type SyncOperation = {
@@ -27,135 +30,142 @@ const SYNC_DEBOUNCE_MS = 300
  * Execute a sync operation against Supabase
  */
 async function executeSyncOperation(op: SyncOperation): Promise<void> {
+  const client = getSupabaseClient()
+  
+  if (!client) {
+    console.warn('Sync operation skipped: No Supabase client available')
+    return
+  }
+
   switch (op.entity) {
     // Workspace operations
     case 'workspace':
       if (op.type === 'create') {
-        await sync.createWorkspace(op.data as sync.WorkspaceInsert)
+        await sync.createWorkspace(client, op.data as sync.WorkspaceInsert)
       } else if (op.type === 'update' && op.id) {
-        await sync.updateWorkspace(op.id, op.data as sync.WorkspaceUpdate)
+        await sync.updateWorkspace(client, op.id, op.data as sync.WorkspaceUpdate)
       } else if (op.type === 'delete' && op.id) {
-        await sync.deleteWorkspace(op.id)
+        await sync.deleteWorkspace(client, op.id)
       }
       break
 
     // Function operations
     case 'function':
       if (op.type === 'create') {
-        await sync.createFunction(op.data as sync.FunctionInsert)
+        await sync.createFunction(client, op.data as sync.FunctionInsert)
       } else if (op.type === 'update' && op.id) {
-        await sync.updateFunction(op.id, op.data as sync.FunctionUpdate)
+        await sync.updateFunction(client, op.id, op.data as sync.FunctionUpdate)
       } else if (op.type === 'delete' && op.id) {
-        await sync.deleteFunction(op.id)
+        await sync.deleteFunction(client, op.id)
       } else if (op.type === 'reorder' && op.orderUpdates) {
-        await sync.updateFunctionOrder(op.orderUpdates)
+        await sync.updateFunctionOrder(client, op.orderUpdates)
       }
       break
 
     // Sub-function operations
     case 'subFunction':
       if (op.type === 'create') {
-        await sync.createSubFunction(op.data as sync.SubFunctionInsert)
+        await sync.createSubFunction(client, op.data as sync.SubFunctionInsert)
       } else if (op.type === 'update' && op.id) {
-        await sync.updateSubFunction(op.id, op.data as sync.SubFunctionUpdate)
+        await sync.updateSubFunction(client, op.id, op.data as sync.SubFunctionUpdate)
       } else if (op.type === 'delete' && op.id) {
-        await sync.deleteSubFunction(op.id)
+        await sync.deleteSubFunction(client, op.id)
       } else if (op.type === 'reorder' && op.orderUpdates) {
-        await sync.updateSubFunctionOrder(op.orderUpdates)
+        await sync.updateSubFunctionOrder(client, op.orderUpdates)
       }
       break
 
     // Activity operations
     case 'activity':
       if (op.type === 'create') {
-        await sync.createActivity(op.data as sync.CoreActivityInsert)
+        await sync.createActivity(client, op.data as sync.CoreActivityInsert)
       } else if (op.type === 'update' && op.id) {
-        await sync.updateActivity(op.id, op.data as sync.CoreActivityUpdate)
+        await sync.updateActivity(client, op.id, op.data as sync.CoreActivityUpdate)
       } else if (op.type === 'delete' && op.id) {
-        await sync.deleteActivity(op.id)
+        await sync.deleteActivity(client, op.id)
       }
       break
 
     // Checklist operations
     case 'checklistItem':
       if (op.type === 'create') {
-        await sync.createChecklistItem(op.data as sync.ChecklistItemInsert)
+        await sync.createChecklistItem(client, op.data as sync.ChecklistItemInsert)
       } else if (op.type === 'update' && op.id) {
-        await sync.updateChecklistItem(op.id, op.data as sync.ChecklistItemUpdate)
+        await sync.updateChecklistItem(client, op.id, op.data as sync.ChecklistItemUpdate)
       } else if (op.type === 'delete' && op.id) {
-        await sync.deleteChecklistItem(op.id)
+        await sync.deleteChecklistItem(client, op.id)
       } else if (op.type === 'reorder' && op.orderUpdates) {
-        await sync.updateChecklistItemOrder(op.orderUpdates)
+        await sync.updateChecklistItemOrder(client, op.orderUpdates)
       }
       break
 
     // Workflow operations
     case 'workflow':
       if (op.type === 'create') {
-        await sync.createWorkflow(op.data as sync.WorkflowInsert)
+        await sync.createWorkflow(client, op.data as sync.WorkflowInsert)
       } else if (op.type === 'update' && op.id) {
-        await sync.updateWorkflow(op.id, op.data as sync.WorkflowUpdate)
+        await sync.updateWorkflow(client, op.id, op.data as sync.WorkflowUpdate)
       } else if (op.type === 'delete' && op.id) {
-        await sync.deleteWorkflow(op.id)
+        await sync.deleteWorkflow(client, op.id)
       }
       break
 
     // Phase operations
     case 'phase':
       if (op.type === 'create') {
-        await sync.createPhase(op.data as sync.PhaseInsert)
+        await sync.createPhase(client, op.data as sync.PhaseInsert)
       } else if (op.type === 'update' && op.id) {
-        await sync.updatePhase(op.id, op.data as sync.PhaseUpdate)
+        await sync.updatePhase(client, op.id, op.data as sync.PhaseUpdate)
       } else if (op.type === 'delete' && op.id) {
-        await sync.deletePhase(op.id)
+        await sync.deletePhase(client, op.id)
       } else if (op.type === 'reorder' && op.orderUpdates) {
-        await sync.updatePhaseOrder(op.orderUpdates)
+        await sync.updatePhaseOrder(client, op.orderUpdates)
       }
       break
 
     // Step operations
     case 'step':
       if (op.type === 'create') {
-        await sync.createStep(op.data as sync.StepInsert)
+        await sync.createStep(client, op.data as sync.StepInsert)
       } else if (op.type === 'update' && op.id) {
-        await sync.updateStep(op.id, op.data as sync.StepUpdate)
+        await sync.updateStep(client, op.id, op.data as sync.StepUpdate)
       } else if (op.type === 'delete' && op.id) {
-        await sync.deleteStep(op.id)
+        await sync.deleteStep(client, op.id)
       } else if (op.type === 'reorder' && op.orderUpdates) {
-        await sync.updateStepOrder(op.orderUpdates)
+        await sync.updateStepOrder(client, op.orderUpdates)
       }
       break
 
     // People operations
     case 'person':
       if (op.type === 'create') {
-        await sync.createPerson(op.data as sync.PersonInsert)
+        await sync.createPerson(client, op.data as sync.PersonInsert)
       } else if (op.type === 'update' && op.id) {
-        await sync.updatePerson(op.id, op.data as sync.PersonUpdate)
+        await sync.updatePerson(client, op.id, op.data as sync.PersonUpdate)
       } else if (op.type === 'delete' && op.id) {
-        await sync.deletePerson(op.id)
+        await sync.deletePerson(client, op.id)
       }
       break
 
     // Role operations
     case 'role':
       if (op.type === 'create') {
-        await sync.createRole(op.data as sync.RoleInsert)
+        await sync.createRole(client, op.data as sync.RoleInsert)
       } else if (op.type === 'update' && op.id) {
-        await sync.updateRole(op.id, op.data as sync.RoleUpdate)
+        await sync.updateRole(client, op.id, op.data as sync.RoleUpdate)
       } else if (op.type === 'delete' && op.id) {
-        await sync.deleteRole(op.id)
+        await sync.deleteRole(client, op.id)
       }
       break
 
     // Software operations
     case 'software':
       if (op.type === 'create') {
-        await sync.createSoftware(op.data as sync.SoftwareInsert)
+        await sync.createSoftware(client, op.data as sync.SoftwareInsert)
       } else if (op.type === 'update' && op.id) {
-        await sync.updateSoftware(op.id, op.data as sync.SoftwareUpdate)
+        await sync.updateSoftware(client, op.id, op.data as sync.SoftwareUpdate)
       } else if (op.type === 'delete' && op.id) {
-        await sync.deleteSoftware(op.id)
+        await sync.deleteSoftware(client, op.id)
       }
       break
 
@@ -172,6 +182,13 @@ async function processQueue(
   markSynced: () => void
 ): Promise<void> {
   if (syncQueue.length === 0) return
+
+  // Check if we have a client before processing
+  const client = getSupabaseClient()
+  if (!client) {
+    console.warn('Sync queue processing skipped: No Supabase client available')
+    return
+  }
 
   const operations = [...syncQueue]
   syncQueue = []
@@ -200,6 +217,12 @@ export function queueSyncOperation(
   markSynced: () => void
 ): void {
   if (!syncEnabled) return
+
+  // Check if Supabase client is available
+  const client = getSupabaseClient()
+  if (!client) {
+    console.warn('Sync operation queued but no Supabase client available')
+  }
 
   syncQueue.push(operation)
 

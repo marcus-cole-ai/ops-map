@@ -1,18 +1,22 @@
 /**
  * Hook to load initial data from Supabase on app startup
  * 
- * Fetches user's workspace data from Supabase when authenticated
+ * Fetches user's workspace data from Supabase when authenticated via Clerk
  * and populates the store. Handles merge with localStorage data.
+ * 
+ * Uses the new Clerk-Supabase third-party auth integration:
+ * - Clerk session token is passed to Supabase via accessToken callback
+ * - RLS policies use auth.jwt()->>'sub' to identify the Clerk user
  */
 
 'use client'
 
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import { useOpsMapStore } from '@/store'
-import { loadUserWorkspaces, mergeWorkspaces } from '@/lib/supabase/initialLoad'
-import { supabase } from '@/lib/supabase/client'
+import { useSupabaseClient } from './useSupabaseClient'
+import { loadUserWorkspacesWithClient, mergeWorkspaces } from '@/lib/supabase/initialLoad'
 
-type LoadState = 'idle' | 'loading' | 'loaded' | 'error'
+export type LoadState = 'idle' | 'loading' | 'loaded' | 'error'
 
 /**
  * Load initial data from Supabase for the authenticated user
@@ -21,40 +25,48 @@ export function useInitialDataLoad(userId: string | null): {
   loadState: LoadState
   reload: () => Promise<void>
 } {
-  const loadStateRef = useRef<LoadState>('idle')
+  const [loadState, setLoadState] = useState<LoadState>('idle')
   const loadedUserRef = useRef<string | null>(null)
+  
+  const { client, isReady, error: clientError } = useSupabaseClient()
 
   const {
-    workspaces,
-    syncEnabled,
     setSyncEnabled,
     setSyncStatus,
     markSynced,
   } = useOpsMapStore()
 
-  // Internal setter to update state ref and re-render if needed
   const store = useOpsMapStore
 
   const loadFromSupabase = useCallback(async () => {
-    if (!userId) return
-
-    // Check if Supabase user is authenticated
-    const { data: { session } } = await supabase.auth.getSession()
-    
-    // If no Supabase session, skip loading from Supabase
-    // User may be authenticated via Clerk but not Supabase
-    if (!session) {
-      console.log('No Supabase session, using localStorage only')
-      loadStateRef.current = 'loaded'
+    // No user = nothing to load
+    if (!userId) {
+      setLoadState('idle')
       return
     }
 
-    loadStateRef.current = 'loading'
+    // Client not ready yet
+    if (!isReady) {
+      return
+    }
+
+    // No client = Supabase not configured or no session
+    if (!client) {
+      if (clientError) {
+        console.log('Supabase client error:', clientError)
+      } else {
+        console.log('Supabase not available, using localStorage only')
+      }
+      setLoadState('loaded') // Mark as loaded so UI doesn't wait forever
+      return
+    }
+
+    setLoadState('loading')
     setSyncStatus('syncing')
 
     try {
-      // Load workspaces from Supabase
-      const supabaseWorkspaces = await loadUserWorkspaces(userId)
+      // Load workspaces from Supabase using authenticated client
+      const supabaseWorkspaces = await loadUserWorkspacesWithClient(client, userId)
 
       if (supabaseWorkspaces.length > 0) {
         // Merge with local workspaces
@@ -76,26 +88,35 @@ export function useInitialDataLoad(userId: string | null): {
         console.log('No workspaces in Supabase, using localStorage')
       }
 
-      loadStateRef.current = 'loaded'
+      setLoadState('loaded')
       loadedUserRef.current = userId
     } catch (error) {
       console.error('Failed to load from Supabase:', error)
       setSyncStatus('error', error instanceof Error ? error.message : 'Failed to load data')
-      loadStateRef.current = 'error'
+      setLoadState('error')
       // Fall back to localStorage (already loaded via persist middleware)
     }
-  }, [userId, setSyncStatus, setSyncEnabled, markSynced, store])
+  }, [userId, client, isReady, clientError, setSyncStatus, setSyncEnabled, markSynced, store])
 
   // Load on mount/user change
   useEffect(() => {
-    // Only load if user changed and not already loading
-    if (userId && userId !== loadedUserRef.current && loadStateRef.current !== 'loading') {
+    // Only load if:
+    // - We have a user
+    // - Client is ready
+    // - We haven't already loaded for this user
+    // - We're not currently loading
+    if (
+      userId && 
+      isReady && 
+      userId !== loadedUserRef.current && 
+      loadState !== 'loading'
+    ) {
       loadFromSupabase()
     }
-  }, [userId, loadFromSupabase])
+  }, [userId, isReady, loadState, loadFromSupabase])
 
   return {
-    loadState: loadStateRef.current,
+    loadState,
     reload: loadFromSupabase,
   }
 }

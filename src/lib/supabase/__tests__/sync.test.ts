@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@/types/database'
 
 // Unmock sync functions so we can test them directly
 vi.unmock('@/lib/supabase/sync')
@@ -24,11 +26,10 @@ const createQueryMock = (resolvedValue: { data: unknown; error: unknown }) => {
 
 let mockQueryBuilder: ReturnType<typeof createQueryMock>
 
-vi.mock('@/lib/supabase/client', () => ({
-  supabase: {
-    from: vi.fn(() => mockQueryBuilder),
-  },
-}))
+// Create a mock Supabase client
+const createMockClient = () => ({
+  from: vi.fn(() => mockQueryBuilder),
+}) as unknown as SupabaseClient<Database>
 
 // Import after mocking
 import {
@@ -41,11 +42,13 @@ import {
   updateFunction,
   deleteFunction,
 } from '../sync'
-import { supabase } from '../client'
 
 describe('Supabase Sync Functions', () => {
+  let client: SupabaseClient<Database>
+
   beforeEach(() => {
     vi.clearAllMocks()
+    client = createMockClient()
   })
 
   describe('Workspace CRUD', () => {
@@ -56,9 +59,9 @@ describe('Supabase Sync Functions', () => {
       ]
       mockQueryBuilder = createQueryMock({ data: mockWorkspaces, error: null })
 
-      const result = await fetchWorkspaces('user-1')
+      const result = await fetchWorkspaces(client, 'user-1')
 
-      expect(supabase.from).toHaveBeenCalledWith('workspaces')
+      expect(client.from).toHaveBeenCalledWith('workspaces')
       expect(mockQueryBuilder.eq).toHaveBeenCalledWith('user_id', 'user-1')
       expect(mockQueryBuilder.order).toHaveBeenCalledWith('created_at', { ascending: false })
       expect(result).toEqual(mockWorkspaces)
@@ -67,7 +70,7 @@ describe('Supabase Sync Functions', () => {
     it('fetchWorkspaces returns empty array when no data', async () => {
       mockQueryBuilder = createQueryMock({ data: null, error: null })
 
-      const result = await fetchWorkspaces('user-1')
+      const result = await fetchWorkspaces(client, 'user-1')
 
       expect(result).toEqual([])
     })
@@ -78,7 +81,7 @@ describe('Supabase Sync Functions', () => {
         error: { message: 'Database error', code: '500' },
       })
 
-      await expect(fetchWorkspaces('user-1')).rejects.toThrow('Failed to fetch workspaces: Database error')
+      await expect(fetchWorkspaces(client, 'user-1')).rejects.toThrow('Failed to fetch workspaces: Database error')
     })
 
     it('createWorkspace inserts and returns workspace', async () => {
@@ -86,9 +89,9 @@ describe('Supabase Sync Functions', () => {
       const createdWorkspace = { id: 'ws-new', ...newWorkspace, created_at: '2024-01-01' }
       mockQueryBuilder = createQueryMock({ data: createdWorkspace, error: null })
 
-      const result = await createWorkspace(newWorkspace)
+      const result = await createWorkspace(client, newWorkspace)
 
-      expect(supabase.from).toHaveBeenCalledWith('workspaces')
+      expect(client.from).toHaveBeenCalledWith('workspaces')
       expect(mockQueryBuilder.insert).toHaveBeenCalledWith(newWorkspace)
       expect(mockQueryBuilder.single).toHaveBeenCalled()
       expect(result).toEqual(createdWorkspace)
@@ -100,7 +103,7 @@ describe('Supabase Sync Functions', () => {
         error: { message: 'Insert failed', code: '500' },
       })
 
-      await expect(createWorkspace({ name: 'Test', user_id: 'user-1' })).rejects.toThrow(
+      await expect(createWorkspace(client, { name: 'Test', user_id: 'user-1' })).rejects.toThrow(
         'Failed to create workspace: Insert failed'
       )
     })
@@ -110,9 +113,9 @@ describe('Supabase Sync Functions', () => {
       const updatedWorkspace = { id: 'ws-1', name: 'Updated Name', user_id: 'user-1' }
       mockQueryBuilder = createQueryMock({ data: updatedWorkspace, error: null })
 
-      const result = await updateWorkspace('ws-1', updates)
+      const result = await updateWorkspace(client, 'ws-1', updates)
 
-      expect(supabase.from).toHaveBeenCalledWith('workspaces')
+      expect(client.from).toHaveBeenCalledWith('workspaces')
       expect(mockQueryBuilder.update).toHaveBeenCalledWith(updates)
       expect(mockQueryBuilder.eq).toHaveBeenCalledWith('id', 'ws-1')
       expect(result).toEqual(updatedWorkspace)
@@ -121,9 +124,9 @@ describe('Supabase Sync Functions', () => {
     it('deleteWorkspace deletes without error', async () => {
       mockQueryBuilder = createQueryMock({ data: null, error: null })
 
-      await expect(deleteWorkspace('ws-1')).resolves.toBeUndefined()
+      await expect(deleteWorkspace(client, 'ws-1')).resolves.toBeUndefined()
 
-      expect(supabase.from).toHaveBeenCalledWith('workspaces')
+      expect(client.from).toHaveBeenCalledWith('workspaces')
       expect(mockQueryBuilder.delete).toHaveBeenCalled()
       expect(mockQueryBuilder.eq).toHaveBeenCalledWith('id', 'ws-1')
     })
@@ -134,7 +137,7 @@ describe('Supabase Sync Functions', () => {
         error: { message: 'Delete failed', code: '500' },
       })
 
-      await expect(deleteWorkspace('ws-1')).rejects.toThrow('Failed to delete workspace: Delete failed')
+      await expect(deleteWorkspace(client, 'ws-1')).rejects.toThrow('Failed to delete workspace: Delete failed')
     })
   })
 
@@ -146,9 +149,9 @@ describe('Supabase Sync Functions', () => {
       ]
       mockQueryBuilder = createQueryMock({ data: mockFunctions, error: null })
 
-      const result = await fetchFunctions('ws-1')
+      const result = await fetchFunctions(client, 'ws-1')
 
-      expect(supabase.from).toHaveBeenCalledWith('functions')
+      expect(client.from).toHaveBeenCalledWith('functions')
       expect(mockQueryBuilder.eq).toHaveBeenCalledWith('workspace_id', 'ws-1')
       expect(mockQueryBuilder.order).toHaveBeenCalledWith('order_index', { ascending: true })
       expect(result).toEqual(mockFunctions)
@@ -159,9 +162,9 @@ describe('Supabase Sync Functions', () => {
       const createdFunc = { id: 'fn-new', ...newFunc }
       mockQueryBuilder = createQueryMock({ data: createdFunc, error: null })
 
-      const result = await createFunction(newFunc)
+      const result = await createFunction(client, newFunc)
 
-      expect(supabase.from).toHaveBeenCalledWith('functions')
+      expect(client.from).toHaveBeenCalledWith('functions')
       expect(mockQueryBuilder.insert).toHaveBeenCalledWith(newFunc)
       expect(result).toEqual(createdFunc)
     })
@@ -171,9 +174,9 @@ describe('Supabase Sync Functions', () => {
       const updatedFunc = { id: 'fn-1', workspace_id: 'ws-1', ...updates }
       mockQueryBuilder = createQueryMock({ data: updatedFunc, error: null })
 
-      const result = await updateFunction('fn-1', updates)
+      const result = await updateFunction(client, 'fn-1', updates)
 
-      expect(supabase.from).toHaveBeenCalledWith('functions')
+      expect(client.from).toHaveBeenCalledWith('functions')
       expect(mockQueryBuilder.update).toHaveBeenCalledWith(updates)
       expect(mockQueryBuilder.eq).toHaveBeenCalledWith('id', 'fn-1')
       expect(result).toEqual(updatedFunc)
@@ -182,9 +185,9 @@ describe('Supabase Sync Functions', () => {
     it('deleteFunction deletes without error', async () => {
       mockQueryBuilder = createQueryMock({ data: null, error: null })
 
-      await expect(deleteFunction('fn-1')).resolves.toBeUndefined()
+      await expect(deleteFunction(client, 'fn-1')).resolves.toBeUndefined()
 
-      expect(supabase.from).toHaveBeenCalledWith('functions')
+      expect(client.from).toHaveBeenCalledWith('functions')
       expect(mockQueryBuilder.delete).toHaveBeenCalled()
     })
 
@@ -194,7 +197,7 @@ describe('Supabase Sync Functions', () => {
         error: { message: 'Cannot delete: has children', code: '500' },
       })
 
-      await expect(deleteFunction('fn-1')).rejects.toThrow(
+      await expect(deleteFunction(client, 'fn-1')).rejects.toThrow(
         'Failed to delete function: Cannot delete: has children'
       )
     })
@@ -204,10 +207,10 @@ describe('Supabase Sync Functions', () => {
     it('handles null data gracefully for list operations', async () => {
       mockQueryBuilder = createQueryMock({ data: null, error: null })
 
-      const workspaces = await fetchWorkspaces('user-1')
+      const workspaces = await fetchWorkspaces(client, 'user-1')
       expect(workspaces).toEqual([])
 
-      const functions = await fetchFunctions('ws-1')
+      const functions = await fetchFunctions(client, 'ws-1')
       expect(functions).toEqual([])
     })
 
@@ -220,7 +223,7 @@ describe('Supabase Sync Functions', () => {
 
       for (const message of errorMessages) {
         mockQueryBuilder = createQueryMock({ data: null, error: { message, code: '500' } })
-        await expect(fetchWorkspaces('user-1')).rejects.toThrow(message)
+        await expect(fetchWorkspaces(client, 'user-1')).rejects.toThrow(message)
       }
     })
   })
