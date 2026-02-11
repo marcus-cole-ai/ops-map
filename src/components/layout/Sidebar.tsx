@@ -25,6 +25,7 @@ import {
 import { GlobalSearch } from '@/components/GlobalSearch'
 import { KeyboardShortcuts } from '@/components/KeyboardShortcuts'
 import { WorkspaceSwitcher } from '@/components/WorkspaceSwitcher'
+import { SyncStatusIndicator } from '@/components/SyncStatusIndicator'
 
 const navigation = [
   { name: 'Function Chart', href: '/function-chart', icon: LayoutGrid },
@@ -210,14 +211,17 @@ export function Sidebar() {
           <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
             GrowthKits © 2026
           </div>
-          <UserButton 
-            afterSignOutUrl="/"
-            appearance={{
-              elements: {
-                avatarBox: "w-8 h-8"
-              }
-            }}
-          />
+          <div className="flex items-center gap-2">
+            <SyncStatusIndicator />
+            <UserButton 
+              afterSignOutUrl="/"
+              appearance={{
+                elements: {
+                  avatarBox: "w-8 h-8"
+                }
+              }}
+            />
+          </div>
         </div>
       </div>
     </>

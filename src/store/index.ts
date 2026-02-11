@@ -87,11 +87,25 @@ const createEmptyWorkspace = (name: string, userId?: string): Workspace => {
   }
 }
 
+// Sync status type
+type SyncStatus = 'idle' | 'syncing' | 'error'
+
 interface OpsMapState {
   // Workspace management
   workspaces: Workspace[]
   activeWorkspaceId: string
   currentUserId: string | null  // Clerk user ID
+  
+  // Sync state
+  syncEnabled: boolean
+  syncStatus: SyncStatus
+  lastSyncedAt: Date | null
+  syncError: string | null
+  
+  // Sync actions
+  setSyncEnabled: (enabled: boolean) => void
+  setSyncStatus: (status: SyncStatus, error?: string | null) => void
+  markSynced: () => void
   
   // Workspace actions
   getActiveWorkspace: () => Workspace
@@ -313,6 +327,23 @@ export const useOpsMapStore = create<OpsMapState>()(
       workspaces: initialWorkspaces,
       activeWorkspaceId: defaultWorkspace.id,
       currentUserId: null,
+      
+      // Sync state
+      syncEnabled: false,
+      syncStatus: 'idle' as SyncStatus,
+      lastSyncedAt: null,
+      syncError: null,
+      
+      // Sync actions
+      setSyncEnabled: (enabled) => {
+        set({ syncEnabled: enabled })
+      },
+      setSyncStatus: (status, error = null) => {
+        set({ syncStatus: status, syncError: error })
+      },
+      markSynced: () => {
+        set({ syncStatus: 'idle', lastSyncedAt: new Date(), syncError: null })
+      },
       
       getActiveWorkspace: () => {
         const state = get()
@@ -1495,3 +1526,48 @@ export const useOpsMapStore = create<OpsMapState>()(
     }
   )
 )
+
+// Re-export sync utilities for use by components
+export { queueSyncOperation, flushSyncQueue } from './syncMiddleware'
+export type { SyncOperation } from './syncMiddleware'
+
+/**
+ * Helper hook to get sync-aware action wrappers
+ * Usage: const { syncFunction } = useSyncActions()
+ *        syncFunction('create', 'function', { data })
+ */
+export function useSyncActions() {
+  const store = useOpsMapStore()
+  
+  const queueSync = (
+    type: string,
+    entity: string,
+    options: {
+      id?: string
+      data?: Record<string, unknown>
+      workspaceId?: string
+      parentId?: string
+      orderUpdates?: { id: string; order_index: number }[]
+    } = {}
+  ) => {
+    if (!store.syncEnabled) return
+    
+    // Dynamic import to avoid issues during SSR
+    import('./syncMiddleware').then(({ queueSyncOperation }) => {
+      queueSyncOperation(
+        { type, entity, ...options },
+        store.syncEnabled,
+        store.setSyncStatus,
+        store.markSynced
+      )
+    })
+  }
+
+  return {
+    queueSync,
+    syncEnabled: store.syncEnabled,
+    syncStatus: store.syncStatus,
+    syncError: store.syncError,
+    lastSyncedAt: store.lastSyncedAt,
+  }
+}

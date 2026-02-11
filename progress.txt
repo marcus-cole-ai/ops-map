@@ -1,6 +1,6 @@
 # Ops Map Progress
 
-Last Updated: 2026-02-10
+Last Updated: 2026-02-11 00:08 CST
 
 ## ✅ Completed Phases
 
@@ -39,11 +39,237 @@ Last Updated: 2026-02-10
 - Checklist trigger/end state metadata
 - Reorderable checklist items
 
-## 🚧 In Progress
+## 🚧 In Progress: Phase 6 - Backend Persistence
 
-None (between phases)
+### Database Schema
+- [x] Task 1.1: Create `workspaces` table migration ✅ (2026-02-10)
+  - Table: public.workspaces (id, name, user_id, created_at, company_profile, ai_settings)
+  - RLS enabled: users can only access their own workspaces
+  - Migration: 20260211053350_create_workspaces_table.sql
 
-## 📋 Next Up: Phase 6 - Backend Persistence
+- [x] Task 1.2: Create `functions` table migration ✅ (2026-02-10)
+  - Table: public.functions (id, workspace_id, name, description, status, order_index, color)
+  - FK to workspaces with cascade delete
+  - RLS: users can access functions in their workspaces
+  - Migration: 20260211053535_create_functions_table.sql
+
+- [x] Task 1.3: Create `sub_functions` table migration ✅ (2026-02-10)
+  - Table: public.sub_functions (id, function_id, name, description, status, order_index)
+  - FK to functions with cascade delete
+  - RLS: users can access sub_functions via functions→workspaces chain
+  - Migration: 20260211053703_create_sub_functions_table.sql
+
+- [x] Task 1.4: Create `core_activities` table migration ✅ (2026-02-10)
+  - Table: public.core_activities (id, workspace_id, name, description, full_description, status, video_url, video_type, checklist_trigger, checklist_end_state, created_at, published_at)
+  - FK to workspaces with cascade delete
+  - RLS: users can access core_activities in their workspaces
+  - Migration: 20260211053842_create_core_activities_table.sql
+
+- [x] Task 1.5: Create `checklist_items` table migration ✅ (2026-02-10)
+  - Table: public.checklist_items (id, activity_id, text, order_index, completed, video_url)
+  - FK to core_activities with cascade delete
+  - RLS: users can access checklist_items via activities→workspaces chain
+  - Migration: 20260211054015_create_checklist_items_table.sql
+
+- [x] Task 1.6: Create `workflows` table migration ✅ (2026-02-10)
+  - Table: public.workflows (id, workspace_id, name, description, status, created_at, published_at)
+  - FK to workspaces with cascade delete
+  - RLS: users can access workflows in their workspaces
+  - Migration: 20260211054142_create_workflows_table.sql
+
+- [x] Task 1.7: Create `phases` and `steps` tables migration ✅ (2026-02-10)
+  - Table: public.phases (id, workflow_id, name, order_index)
+  - Table: public.steps (id, phase_id, name, order_index, sop_video_url, sop_video_type)
+  - FK chain: steps→phases→workflows→workspaces (cascade delete)
+  - RLS: users can access phases/steps via workflow→workspace chain
+  - Migration: 20260211054248_create_phases_and_steps_tables.sql
+
+- [x] Task 1.8: Create `people`, `roles`, `software` tables migration ✅ (2026-02-10)
+  - Table: public.roles (id, workspace_id, name, description)
+  - Table: public.software (id, workspace_id, name, url)
+  - Table: public.people (id, workspace_id, name, email, title, role_id, reports_to)
+  - FK: people.role_id → roles (set null on delete), people.reports_to → people (self-reference, set null)
+  - RLS: users can access all three tables via workspace ownership
+  - Migration: 20260211054411_create_people_roles_software_tables.sql
+
+- [x] Task 1.9: Create junction tables migration ✅ (2026-02-10)
+  - Table: public.sub_function_activities (sub_function_id, activity_id)
+  - Table: public.step_activities (step_id, activity_id)
+  - Table: public.activity_roles (activity_id, role_id)
+  - Table: public.activity_people (activity_id, person_id)
+  - Table: public.activity_software (activity_id, software_id)
+  - All FKs cascade on delete, composite primary keys
+  - RLS: users can access junction tables via activity→workspace chain
+  - Migration: 20260211054538_create_junction_tables.sql
+
+### Supabase Client
+- [x] Task 2.1: Create `src/lib/supabase/client.ts` ✅ (2026-02-10)
+  - Browser client initialized with createClient from @supabase/supabase-js
+  - Uses NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY env vars
+  - Placeholder Database type (awaiting Task 2.2 for generated types)
+  - File: src/lib/supabase/client.ts (~25 lines)
+
+- [x] Task 2.2: Generate TypeScript types from Supabase schema ✅ (2026-02-10)
+  - Generated types via `supabase gen types typescript --project-id qdmbwinkncaslvnvgyxy`
+  - Output: src/types/database.ts (442 lines)
+  - 17 tables with full Row/Insert/Update types + Relationships
+  - Updated client.ts to import and re-export Database type
+  - Build verified passing
+
+### Sync Layer
+- [x] Task 3.1: Create `src/lib/supabase/sync.ts` - workspace sync ✅ (2026-02-10)
+  - fetchWorkspaces(userId): get all workspaces for user
+  - createWorkspace(workspace): insert new workspace
+  - updateWorkspace(id, updates): update workspace
+  - deleteWorkspace(id): delete workspace
+  - fetchWorkspaceById(id): get single workspace (bonus helper)
+  - File: src/lib/supabase/sync.ts (~85 lines)
+  - Build verified passing
+
+- [x] Task 3.2: Create sync functions for functions/sub-functions ✅ (2026-02-10)
+  - fetchFunctions(workspaceId): get all functions ordered by order_index
+  - createFunction, updateFunction, deleteFunction: full CRUD
+  - updateFunctionOrder: batch reorder support
+  - fetchSubFunctions(functionId): get all sub-functions ordered by order_index
+  - createSubFunction, updateSubFunction, deleteSubFunction: full CRUD
+  - updateSubFunctionOrder: batch reorder support
+  - Added to: src/lib/supabase/sync.ts (~100 lines added)
+  - Build verified passing
+
+- [x] Task 3.3: Create sync functions for activities/checklists ✅ (2026-02-10)
+  - fetchActivities(workspaceId): get all activities ordered by created_at
+  - createActivity, updateActivity, deleteActivity: full CRUD
+  - fetchChecklistItems(activityId): get all checklist items ordered by order_index
+  - createChecklistItem, updateChecklistItem, deleteChecklistItem: full CRUD
+  - updateChecklistItemOrder: batch reorder support
+  - Added to: src/lib/supabase/sync.ts (~110 lines added)
+  - Build verified passing
+
+- [x] Task 3.4: Create sync functions for workflows/phases/steps ✅ (2026-02-10)
+  - fetchWorkflows(workspaceId): get all workflows ordered by created_at
+  - createWorkflow, updateWorkflow, deleteWorkflow: full CRUD
+  - fetchPhases(workflowId): get all phases ordered by order_index
+  - createPhase, updatePhase, deletePhase: full CRUD
+  - updatePhaseOrder: batch reorder support
+  - fetchSteps(phaseId): get all steps ordered by order_index
+  - createStep, updateStep, deleteStep: full CRUD
+  - updateStepOrder: batch reorder support
+  - Added to: src/lib/supabase/sync.ts (~120 lines added)
+  - Build verified passing
+
+- [x] Task 3.5: Create sync functions for people/roles/software ✅ (2026-02-10)
+  - fetchPeople(workspaceId): get all people ordered by name
+  - createPerson, updatePerson, deletePerson: full CRUD
+  - fetchRoles(workspaceId): get all roles ordered by name
+  - createRole, updateRole, deleteRole: full CRUD
+  - fetchSoftware(workspaceId): get all software ordered by name
+  - createSoftware, updateSoftware, deleteSoftware: full CRUD
+  - Added to: src/lib/supabase/sync.ts (~80 lines added)
+  - Build verified passing
+
+### Store Integration
+- [x] Task 4.1: Add sync flag to store ✅ (2026-02-10)
+  - Added state: syncEnabled, syncStatus, lastSyncedAt, syncError
+  - Added actions: setSyncEnabled, setSyncStatus, markSynced
+  - SyncStatus type: 'idle' | 'syncing' | 'error'
+  - File: src/store/index.ts (~25 lines added)
+  - Build verified passing, all tests passing
+
+- [x] Task 4.2: Create store middleware for Supabase sync ✅ (2026-02-10)
+  - Created src/store/syncMiddleware.ts (~160 lines)
+  - queueSyncOperation: queues operations with debouncing (300ms)
+  - flushSyncQueue: force flush pending operations
+  - executeSyncOperation: dispatches to correct sync.* function by entity type
+  - createSyncAction: helper to wrap actions with sync capability
+  - useSyncActions hook: exposes queueSync helper for components
+  - Handles all entity types: workspace, function, subFunction, activity, checklistItem, workflow, phase, step, person, role, software
+  - localStorage remains working via persist middleware (offline fallback)
+  - Updated vitest.setup.ts with Supabase mocks for testing
+  - Build verified passing, all tests passing (10/10)
+
+- [x] Task 4.3: Add initial load from Supabase ✅ (2026-02-11)
+  - Created src/lib/supabase/initialLoad.ts (~250 lines)
+  - loadUserWorkspaces(userId): fetches all workspaces with nested entities
+  - loadFullWorkspace: parallel fetches for functions, activities, workflows, etc.
+  - transformToLocalWorkspace: converts Supabase rows to local store format
+  - mergeWorkspaces: merges Supabase data with localStorage (Supabase = source of truth)
+  - Created src/hooks/useInitialDataLoad.ts (~80 lines)
+  - Hook checks Supabase auth session before loading
+  - Falls back to localStorage if no Supabase session
+  - Enables sync after successful load
+  - Updated WorkspaceInitializer to use useInitialDataLoad hook
+  - Shows loading state while fetching from Supabase
+  - Build verified passing, all tests passing (10/10)
+
+### UI Updates
+- [x] Task 5.1: Add sync status indicator to header ✅ (2026-02-11)
+  - Created src/components/SyncStatusIndicator.tsx (~80 lines)
+  - Uses Radix UI Tooltip for hover state
+  - Shows: Cloud icon (synced), Loader2 spinner (syncing), CloudOff (error)
+  - Color coding: green for syncing, red for error, gray for synced
+  - Tooltip shows "Synced X ago" or error message
+  - formatTimeAgo helper for human-readable timestamps
+  - Added to Sidebar footer next to UserButton
+  - Only visible when syncEnabled is true
+  - Build verified passing, all tests passing (10/10)
+
+- [x] Task 5.2: Add offline mode banner ✅ (2026-02-11)
+  - Created src/components/OfflineBanner.tsx (~40 lines)
+  - Uses navigator.onLine and online/offline events to detect connectivity
+  - Shows orange banner with WifiOff icon when offline
+  - Message: "You're offline. Changes will sync when you're back online."
+  - Auto-hides when connectivity restored
+  - Accessible: role="alert" and aria-live="polite"
+  - Added to AppShell at top of layout
+  - Build verified passing, all tests passing (10/10)
+
+### Testing
+- [x] Task 6.1: Add tests for sync functions ✅ (2026-02-11)
+  - Created src/lib/supabase/__tests__/sync.test.ts (~180 lines, 15 tests)
+  - Mocked Supabase client with chainable query builder pattern
+  - Tested workspace CRUD: fetch, create, update, delete + error handling
+  - Tested function CRUD: fetch, create, update, delete + error handling
+  - Verified null data handling (empty arrays for list operations)
+  - Verified error message propagation
+  - All 25 tests passing (15 new sync + 10 existing store tests)
+
+- [x] Task 6.2: Add integration test for store + sync ✅ (2026-02-11)
+  - Created src/store/__tests__/syncIntegration.test.ts (~185 lines, 11 tests)
+  - Test sync operations when syncEnabled is true (queue, execute, batch)
+  - Test offline fallback: localStorage works independently of sync status
+  - Test sync errors do not block local state updates
+  - Test sync status updates: syncing → success (markSynced) or error
+  - Test createSyncAction helper wraps actions correctly
+  - Test flushSyncQueue processes pending operations immediately
+  - All 36 tests passing (15 sync + 10 store + 11 integration)
+
+---
+
+## 🎉 PHASE 6 COMPLETE! 🎉
+
+Backend persistence with Supabase is fully implemented!
+
+### Phase 6 Summary:
+- **23 tasks completed**
+- **~1,800 lines of code**
+- **36 passing tests**
+- **17 database tables with RLS**
+- **Full sync layer with CRUD for all entities**
+- **Offline-first architecture with localStorage fallback**
+- **Real-time sync status indicator in UI**
+- **Automatic initial load from Supabase on auth**
+
+### What's Working:
+✅ Users can sign in with Clerk
+✅ Workspaces are created/loaded from Supabase
+✅ All changes sync to Supabase with debouncing
+✅ Offline mode banner when disconnected
+✅ Sync status indicator shows progress/errors
+✅ localStorage continues working as fallback
+
+---
+
+## 📋 Next Up
 
 See PRD.md for detailed task breakdown.
 
